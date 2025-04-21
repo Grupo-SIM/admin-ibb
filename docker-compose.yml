@@ -1,0 +1,37 @@
+version: "3.8"
+services:
+  admin_bosque:
+    image: luissantostsx/admin-bosque:latest
+    environment:
+      - NODE_ENV=production
+      - API_URL=https://api-bosque.jbmidia.com
+    networks:
+      - externa
+      - interna
+    deploy:
+      mode: replicated
+      replicas: 3
+      update_config:
+        parallelism: 2
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.admin_bosque.loadbalancer.server.port=3000"
+        - "traefik.http.services.admin_bosque.loadbalancer.passHostHeader=true"
+        - "traefik.http.routers.admin_bosque.service=admin_bosque"
+        - "traefik.http.routers.admin_bosque.rule=Host(`admin-bosque.jbmidia.com`)"
+        - "traefik.http.routers.admin_bosque.tls.certresolver=le"
+        - "traefik.http.routers.admin_bosque.entrypoints=websecure"
+        - "traefik.http.routers.admin_bosque.tls=true"
+
+networks:
+  externa:
+    external: true
+  interna:
+    external: true
