@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/global";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/global";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'react-toastify';;
 import { Lock } from "lucide-react";
 import { setCookie } from "@/hooks/set-cookie";
 
@@ -20,7 +20,6 @@ const LoginPage = () => {
   const [mail, setMail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { toast, Toasts } = useToast();
   const API_URL = process.env.API_URL || "https://api-bosque.jbmidia.com";
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,12 +42,9 @@ const LoginPage = () => {
     
       // On successful login
       router.push("/admin");
+      toast.success("Login realizado com sucesso!");
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Senha incorreta. Tente novamente.",
-        variant: "destructive",
-      });
+      toast.error("Senha incorreta. Tente novamente.");;
     } finally {
       setIsLoading(false);
     }

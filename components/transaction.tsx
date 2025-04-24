@@ -40,7 +40,7 @@ import {
   ChevronRight,
   Download,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'react-toastify';
 import { jsonToExcel } from "@/services/excel";
 
 interface Transaction {
@@ -135,6 +135,26 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+const getFeriados = async () => {
+  const ano = new Date().getFullYear();
+  try {
+    const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
+    const data = await response.json();
+    return data.map((feriado: any) => ({
+      date: feriado.date,
+      name: feriado.name
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar feriados:', error);
+    return [];
+  }
+};
+
+const isWeekend = (date: Date) => {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+};
+
 const TransactionsPage = () => {
   const [activeTab, setActiveTab] = useState("transactions");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -167,7 +187,8 @@ const TransactionsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [pixKey, setPixKey] = useState("");
-  const { toast } = useToast();
+  const [noDiaUtilModal, setNoDiaUtilModal] = useState(false);
+  const [feriadoInfo, setFeriadoInfo] = useState<{name: string} | null>(null);
   const API_URL = "https://api-dom.jbmidia.com";
 
   const [walletPerDescription, setWalletPerDescription] = useState<{
@@ -178,6 +199,33 @@ const TransactionsPage = () => {
     dizimo: 0,
     fundação: 0,
   });
+
+  useEffect(() => {
+    const checkDiaUtil = async () => {
+      const hoje = new Date();
+      const dataHoje = hoje.toISOString().split('T')[0];
+      
+      if (isWeekend(hoje)) {
+        setNoDiaUtilModal(true);
+        return;
+      }
+      
+      const feriados = await getFeriados();
+      interface Feriado {
+        date: string;
+        name: string;
+      }
+
+      const feriado = feriados.find((f: Feriado) => f.date === dataHoje);
+      
+      if (feriado) {
+        setFeriadoInfo(feriado);
+        setNoDiaUtilModal(true);
+      }
+    };
+    
+    checkDiaUtil();
+  }, []);
 
   const handleExportExcel = async () => {
     setIsExporting(true);
@@ -232,16 +280,9 @@ const TransactionsPage = () => {
         `transacoes-${new Date().toISOString().split("T")[0]}`
       );
 
-      toast({
-        title: "Sucesso",
-        description: "Arquivo Excel exportado com sucesso!",
-      });
+      toast.success("Arquivo Excel exportado com sucesso!");
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível exportar o arquivo Excel.",
-        variant: "destructive",
-      });
+      toast.error("Não foi possível exportar o arquivo Excel.");
     } finally {
       setIsExporting(false);
     }
@@ -268,11 +309,7 @@ const TransactionsPage = () => {
       const data = await response.json();
       setFinancialSummary(data);
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar o resumo financeiro.",
-        variant: "destructive",
-      });
+      toast.error("Não foi possível carregar o resumo financeiro.");
     }
   };
 
@@ -305,11 +342,7 @@ const TransactionsPage = () => {
       setTransactions(data.transactions);
       setPaginationMeta(data.meta);
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar as transações.",
-        variant: "destructive",
-      });
+      toast.error("Não foi possível carregar as transações.");
     } finally {
       setIsLoading(false);
     }
@@ -332,11 +365,7 @@ const TransactionsPage = () => {
       setWithdrawals(data.withdrawals);
       setWithdrawalsPaginationMeta(data.meta);
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os saques.",
-        variant: "destructive",
-      });
+      toast.error("Não foi possível carregar os saques.");
     } finally {
       setIsLoading(false);
     }
@@ -344,20 +373,12 @@ const TransactionsPage = () => {
 
   const handleWithdrawalRequest = async () => {
     if (!withdrawalAmount || parseFloat(withdrawalAmount) <= 0) {
-      toast({
-        title: "Erro",
-        description: "Por favor, insira um valor válido.",
-        variant: "destructive",
-      });
+      toast.success(`PIX enviado com sucesso! ✅ Seu saque de ${formatCurrency(parseFloat(withdrawalAmount))} foi processado e está sendo transferido para sua conta.`);
       return;
     }
 
     if (!pixKey.trim()) {
-      toast({
-        title: "Erro",
-        description: "Por favor, insira uma chave PIX válida.",
-        variant: "destructive",
-      });
+      toast.error("Por favor, insira uma chave PIX válida.");
       return;
     }
 
@@ -378,10 +399,7 @@ const TransactionsPage = () => {
 
       if (!response.ok) throw new Error("Falha ao solicitar saque");
 
-      toast({
-        title: "Sucesso",
-        description: "Solicitação de saque enviada com sucesso!",
-      });
+      toast.success(`PIX enviado com sucesso! ✅ Seu saque de ${formatCurrency(parseFloat(withdrawalAmount))} foi processado e está sendo transferido para sua conta.`);
 
       setIsModalOpen(false);
       setWithdrawalAmount("");
@@ -389,11 +407,7 @@ const TransactionsPage = () => {
       fetchWithdrawals(withdrawalsPaginationMeta.currentPage);
       fetchFinancialSummary();
     } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível solicitar o saque.",
-        variant: "destructive",
-      });
+      toast.error("Não foi possível solicitar o saque.");
     } finally {
       setIsWithdrawing(false);
     }
@@ -685,6 +699,21 @@ const TransactionsPage = () => {
   return (
     <div className="p-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="w-full bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-blue-800">
+                Atenção: Saques solicitados são processados apenas em dias úteis (segunda a sexta-feira, exceto feriados). 
+                Solicitações feitas serão processadas no próximo dia útil.
+              </p>
+            </div>
+          </div>
+        </div>
         <div className="flex justify-between items-center mb-6">
           <TabsList>
             <TabsTrigger value="transactions">Transações</TabsTrigger>
@@ -706,6 +735,15 @@ const TransactionsPage = () => {
               <DialogTitle>Solicitar Saque</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              {(isWeekend(new Date()) || feriadoInfo) && (
+                <div className="p-3 bg-red-50 border border-red-300 rounded-md">
+                  <p className="text-red-600 font-medium text-center">
+                    {isWeekend(new Date()) 
+                      ? "Atenção! Hoje é final de semana. O processamento do seu saque só iniciará no próximo dia útil."
+                      : `Atenção! Hoje é ${feriadoInfo?.name || 'feriado'}. O processamento do seu saque só iniciará no próximo dia útil.`}
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="amount" className="text-right">
                   Valor
@@ -789,6 +827,33 @@ const TransactionsPage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        <Dialog open={noDiaUtilModal} onOpenChange={setNoDiaUtilModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Aviso Importante</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <p className="text-gray-700 text-center">
+                {isWeekend(new Date()) 
+                  ? "Hoje é final de semana. Saques só podem ser solicitados em dias úteis."
+                  : `Hoje é ${feriadoInfo?.name || 'feriado'}. Saques só podem ser solicitados em dias úteis.`}
+              </p>
+              <p className="text-sm text-gray-500 text-center">
+                Por favor, aguarde o próximo dia útil para solicitar seu saque.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button 
+                onClick={() => setNoDiaUtilModal(false)}
+                className="w-full"
+              >
+                Entendi
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <TabsContent value="transactions" className="space-y-6">
           <Card>
             <CardContent className="p-6">
