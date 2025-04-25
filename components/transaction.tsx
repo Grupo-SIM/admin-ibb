@@ -708,8 +708,7 @@ const TransactionsPage = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-blue-800">
-                Atenção: Saques solicitados são processados apenas em dias úteis (segunda a sexta-feira, exceto feriados). 
-                Solicitações feitas serão processadas no próximo dia útil.
+                Atenção: As solicitações de saque são processadas em até 48 horas apenas em dias úteis.
               </p>
             </div>
           </div>
@@ -717,7 +716,7 @@ const TransactionsPage = () => {
         <div className="flex justify-between items-center mb-6">
           <TabsList>
             <TabsTrigger value="transactions">Transações</TabsTrigger>
-            <TabsTrigger value="withdrawals">Saques</TabsTrigger>
+            <TabsTrigger value="withdrawals">Histórico de saques</TabsTrigger>
           </TabsList>
 
           <div className="flex gap-4">
@@ -758,7 +757,8 @@ const TransactionsPage = () => {
                       onChange={handleAmountChange}
                       className={`pl-8 ${
                         parseFloat(withdrawalAmount.replace(",", ".")) >
-                        financialSummary.availableBalance - 2
+                        financialSummary.availableBalance - 2 || 
+                        parseFloat(withdrawalAmount.replace(",", ".")) > 100
                           ? "border-red-500 focus:ring-red-500"
                           : ""
                       }`}
@@ -767,7 +767,7 @@ const TransactionsPage = () => {
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
                     Saldo máximo para saque: R${" "}
-                    {(financialSummary.availableBalance - 1)
+                    {(financialSummary.availableBalance - 2)
                       .toFixed(2)
                       .replace(".", ",")}
                   </p>
@@ -790,6 +790,9 @@ const TransactionsPage = () => {
               <p className="text-sm text-gray-500 text-center">
                 Será cobrada uma taxa de R$ 2,00 por saque
               </p>
+              <p className="text-sm text-red-500 font-medium text-center mt-1">
+                O valor mínimo para saque deve ser de R$ 5,00
+              </p>
             </div>
             <DialogFooter>
               <Button
@@ -811,7 +814,8 @@ const TransactionsPage = () => {
                   !pixKey ||
                   parseFloat(withdrawalAmount.replace(",", ".")) >
                     financialSummary.availableBalance - 1 ||
-                  parseFloat(withdrawalAmount.replace(",", ".")) <= 0
+                  parseFloat(withdrawalAmount.replace(",", ".")) < 5 ||
+                  parseFloat(withdrawalAmount.replace(",", ".")) > 100
                 }
                 className="bg-green-600 hover:bg-green-700 text-white"
               >

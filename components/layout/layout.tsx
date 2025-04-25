@@ -78,7 +78,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     },
     {
       id: "/admin/users",
-      label: "Users",
+      label: "Usuários",
       icon: User2,
       roles: "admin",
     },
