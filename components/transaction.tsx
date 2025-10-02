@@ -121,9 +121,21 @@ const getStatusColor = (status: string) => {
     COMPLETED: "bg-green-100 text-green-800",
     FAILED: "bg-red-100 text-red-800",
     PROCESSING: "bg-blue-100 text-blue-800",
-    APPROVED: "bg-green-100 text-green-800",
+    APPROVED: "bg-yellow-100 text-yellow-800", // Tratado como PENDING
   };
   return statusColors[status] || "bg-gray-100 text-gray-800";
+};
+
+// Função para obter texto traduzido do status
+const getStatusText = (status: string) => {
+  const statusTexts: any = {
+    PENDING: "Pendente",
+    COMPLETED: "Concluído",
+    FAILED: "Falhou",
+    PROCESSING: "Processando",
+    APPROVED: "Pendente", // Ainda aguardando processamento final
+  };
+  return statusTexts[status] || status;
 };
 
 const formatCurrency = (value: number) => {
@@ -190,6 +202,11 @@ const TransactionsPage = () => {
   const [noDiaUtilModal, setNoDiaUtilModal] = useState(false);
   const [feriadoInfo, setFeriadoInfo] = useState<{name: string} | null>(null);
   const API_URL = "https://api-dom.jbmidia.com";
+
+  // Verificar se há saque pendente (PENDING ou APPROVED)
+  const hasPendingWithdraw = withdrawals.some(w => 
+    w.status === 'PENDING' || w.status === 'APPROVED'
+  );
 
   const [walletPerDescription, setWalletPerDescription] = useState<{
     [key: string]: number;
@@ -373,7 +390,7 @@ const TransactionsPage = () => {
 
   const handleWithdrawalRequest = async () => {
     if (!withdrawalAmount || parseFloat(withdrawalAmount) <= 0) {
-      toast.success(`PIX enviado com sucesso! ✅ Seu saque de ${formatCurrency(parseFloat(withdrawalAmount))} foi processado e está sendo transferido para sua conta.`);
+      toast.error("Por favor, insira um valor válido para o saque.");
       return;
     }
 
@@ -397,7 +414,10 @@ const TransactionsPage = () => {
         }),
       });
 
-      if (!response.ok) throw new Error("Falha ao solicitar saque");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Falha ao solicitar saque");
+      }
 
       toast.success(`PIX enviado com sucesso! ✅ Seu saque de ${formatCurrency(parseFloat(withdrawalAmount))} foi processado e está sendo transferido para sua conta.`);
 
@@ -407,7 +427,8 @@ const TransactionsPage = () => {
       fetchWithdrawals(withdrawalsPaginationMeta.currentPage);
       fetchFinancialSummary();
     } catch (error) {
-      toast.error("Não foi possível solicitar o saque.");
+      const errorMessage = error instanceof Error ? error.message : "Não foi possível solicitar o saque.";
+      toast.error(errorMessage);
     } finally {
       setIsWithdrawing(false);
     }
@@ -620,7 +641,7 @@ const TransactionsPage = () => {
                       transaction.status
                     )}`}
                   >
-                    {transaction.status}
+                    {getStatusText(transaction.status)}
                   </Badge>
                 </TableCell>
               </TableRow>
@@ -677,7 +698,7 @@ const TransactionsPage = () => {
                       withdrawal.status
                     )}`}
                   >
-                    {withdrawal.status}
+                    {getStatusText(withdrawal.status)}
                   </Badge>
                 </TableCell>
               </TableRow>
@@ -708,11 +729,29 @@ const TransactionsPage = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-blue-800">
-                Atenção: As solicitações de saque são processadas em até 48 horas apenas em dias úteis.
+                Atenção: As solicitações de saque são processadas em até 48 horas apenas em dias úteis.
               </p>
             </div>
           </div>
         </div>
+
+        {/* Banner de aviso para saque pendente */}
+        {hasPendingWithdraw && (
+          <div className="w-full bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-yellow-800">
+                  Você possui um saque pendente. Aguarde a aprovação para solicitar um novo saque.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex justify-between items-center mb-6">
           <TabsList>
             <TabsTrigger value="transactions">Transações</TabsTrigger>
@@ -722,9 +761,14 @@ const TransactionsPage = () => {
           <div className="flex gap-4">
             <Button
               onClick={() => setIsModalOpen(true)}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={hasPendingWithdraw}
+              className={`${
+                hasPendingWithdraw 
+                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed" 
+                  : "bg-green-600 hover:bg-green-700"
+              } text-white`}
             >
-              Solicitar Saque
+              {hasPendingWithdraw ? 'Saque Pendente' : 'Solicitar Saque'}
             </Button>
           </div>
         </div>
@@ -733,6 +777,20 @@ const TransactionsPage = () => {
             <DialogHeader>
               <DialogTitle>Solicitar Saque</DialogTitle>
             </DialogHeader>
+            
+            {/* Aviso sobre saque pendente no modal */}
+            {hasPendingWithdraw && (
+              <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md mb-4">
+                <div className="flex items-center">
+                  <svg className="h-5 w-5 text-yellow-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <p className="text-yellow-800 font-medium">
+                    Você já possui um saque pendente. Aguarde a aprovação para solicitar um novo.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="grid gap-4 py-4">
               {(isWeekend(new Date()) || feriadoInfo) && (
                 <div className="p-3 bg-red-50 border border-red-300 rounded-md">
@@ -809,19 +867,26 @@ const TransactionsPage = () => {
                 onClick={handleWithdrawalRequest}
                 disabled={
                   isWithdrawing ||
+                  hasPendingWithdraw ||
                   !withdrawalAmount ||
                   !pixKey ||
                   parseFloat(withdrawalAmount.replace(",", ".")) >
                     financialSummary.availableBalance - 1 ||
                   parseFloat(withdrawalAmount.replace(",", ".")) < 100
                 }
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className={`${
+                  hasPendingWithdraw 
+                    ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed" 
+                    : "bg-green-600 hover:bg-green-700"
+                } text-white`}
               >
                 {isWithdrawing ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Processando...
                   </>
+                ) : hasPendingWithdraw ? (
+                  "Saque Pendente"
                 ) : (
                   "Confirmar"
                 )}
@@ -887,7 +952,7 @@ const TransactionsPage = () => {
                     <SelectContent>
                       <SelectItem value="ALL">Todos</SelectItem>
                       <SelectItem value="PENDING">Pendente</SelectItem>
-                      <SelectItem value="COMPLETED">Completado</SelectItem>
+                      <SelectItem value="COMPLETED">Concluído</SelectItem>
                       <SelectItem value="FAILED">Falhou</SelectItem>
                     </SelectContent>
                   </Select>
@@ -951,6 +1016,38 @@ const TransactionsPage = () => {
 
         <TabsContent value="withdrawals" className="space-y-6">
           {renderSummaryCards()}
+          
+          {/* Card de status do saque atual */}
+          {withdrawals.length > 0 && (
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Status do Saque Atual</h3>
+                {withdrawals.slice(0, 1).map((withdrawal) => (
+                  <div key={withdrawal.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className={`h-3 w-3 rounded-full ${
+                        withdrawal.status === 'PENDING' || withdrawal.status === 'APPROVED' ? 'bg-yellow-500' :
+                        withdrawal.status === 'COMPLETED' ? 'bg-green-500' :
+                        withdrawal.status === 'FAILED' ? 'bg-red-500' : 'bg-gray-500'
+                      }`}></div>
+                      <div>
+                        <p className="font-medium">
+                          Saque de {formatCurrency(withdrawal.amount)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Solicitado em {new Date(withdrawal.createdAt).toLocaleDateString("pt-BR")}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className={getStatusColor(withdrawal.status)}>
+                      {getStatusText(withdrawal.status)}
+                    </Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {isLoading ? (
             <div className="flex justify-center items-center h-40">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
