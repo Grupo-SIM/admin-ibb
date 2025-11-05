@@ -85,6 +85,7 @@ interface WithdrawalResponse {
 
 interface FinancialSummary {
   availableBalance: number;
+  netBalance: number;
   pendingWithdraws: number;
   lockedBalance: number;
 }
@@ -181,6 +182,7 @@ const TransactionsPage = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
     availableBalance: 0,
+    netBalance: 0,
     pendingWithdraws: 0,
     lockedBalance: 0,
   });
@@ -482,7 +484,7 @@ const TransactionsPage = () => {
                 Saldo disponível
               </p>
               <h3 className="text-2xl font-bold">
-                {formatCurrency(financialSummary.availableBalance)}
+                {formatCurrency(financialSummary.netBalance)}
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
