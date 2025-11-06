@@ -121,13 +121,13 @@ const formatCPFCNPJ = (value: string) => {
 
 const getStatusColor = (status: string) => {
   const statusColors: any = {
-    PENDING: "bg-yellow-100 text-yellow-800",
-    COMPLETED: "bg-green-100 text-green-800",
-    FAILED: "bg-red-100 text-red-800",
-    PROCESSING: "bg-blue-100 text-blue-800",
-    APPROVED: "bg-yellow-100 text-yellow-800", // Tratado como PENDING
+    PENDING: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+    COMPLETED: "bg-green-100 text-green-800 hover:bg-green-200",
+    FAILED: "bg-red-100 text-red-800 hover:bg-red-200",
+    PROCESSING: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+    APPROVED: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200", // Tratado como PENDING
   };
-  return statusColors[status] || "bg-gray-100 text-gray-800";
+  return statusColors[status] || "bg-gray-100 text-gray-800 hover:bg-gray-200";
 };
 
 // Função para obter texto traduzido do status
