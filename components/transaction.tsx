@@ -39,6 +39,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Info,
 } from "lucide-react";
 import { toast } from 'react-toastify';
 import { jsonToExcel } from "@/services/excel";
@@ -70,6 +71,7 @@ interface Withdrawal {
   pixKey: string;
   receiptImage?: string;
   fee?: string;
+  rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;
   user: {
@@ -135,7 +137,7 @@ const getStatusText = (status: string) => {
   const statusTexts: any = {
     PENDING: "Pendente",
     COMPLETED: "Concluído",
-    FAILED: "Falhou",
+    FAILED: "Recusado",
     PROCESSING: "Processando",
     APPROVED: "Pendente", // Ainda aguardando processamento final
   };
@@ -723,13 +725,27 @@ const TransactionsPage = () => {
                   {withdrawal.pixKey}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    className={`whitespace-nowrap ${getStatusColor(
-                      withdrawal.status
-                    )}`}
-                  >
-                    {getStatusText(withdrawal.status)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className={`whitespace-nowrap ${getStatusColor(
+                        withdrawal.status
+                      )}`}
+                    >
+                      {getStatusText(withdrawal.status)}
+                    </Badge>
+                    {withdrawal.status === "FAILED" && withdrawal.rejectionReason && (
+                      <div className="relative group">
+                        <Info className="h-4 w-4 text-red-500 cursor-help" />
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-0">
+                            <div className="border-4 border-transparent border-b-gray-900"></div>
+                          </div>
+                          <div className="font-semibold mb-1">Razão da Rejeição:</div>
+                          <div>{withdrawal.rejectionReason}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {withdrawal.receiptImage ? (
@@ -1099,9 +1115,23 @@ const TransactionsPage = () => {
                         </p>
                       </div>
                     </div>
-                    <Badge className={getStatusColor(withdrawal.status)}>
-                      {getStatusText(withdrawal.status)}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(withdrawal.status)}>
+                        {getStatusText(withdrawal.status)}
+                      </Badge>
+                      {withdrawal.status === "FAILED" && withdrawal.rejectionReason && (
+                        <div className="relative group">
+                          <Info className="h-4 w-4 text-red-500 cursor-help" />
+                          <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                            <div className="absolute bottom-full right-4 mb-0">
+                              <div className="border-4 border-transparent border-b-gray-900"></div>
+                            </div>
+                            <div className="font-semibold mb-1">Razão da Rejeição:</div>
+                            <div>{withdrawal.rejectionReason}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </CardContent>
