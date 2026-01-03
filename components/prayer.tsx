@@ -397,6 +397,9 @@ const AdminDashboard = () => {
   );
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const openCreateModal = () => {
     setCreateModalOpen(true);
   };
@@ -415,6 +418,8 @@ const AdminDashboard = () => {
       setStatistics(statsData);
       setPrayerRequests(requestsData.items);
       setTotalRequests(requestsData.total);
+      // Limpar seleção quando os dados são recarregados
+      setSelectedIds(new Set());
     } catch (error) {
       toast({
         title: "Erro",
@@ -461,6 +466,55 @@ const AdminDashboard = () => {
       });
     }
   };
+
+  const handleSelectAll = (checked: boolean | "indeterminate") => {
+    if (checked === true) {
+      setSelectedIds(new Set(prayerRequests.map((req) => req.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectItem = (id: string, checked: boolean | "indeterminate") => {
+    const newSelectedIds = new Set(selectedIds);
+    if (checked === true) {
+      newSelectedIds.add(id);
+    } else {
+      newSelectedIds.delete(id);
+    }
+    setSelectedIds(newSelectedIds);
+  };
+
+  const handleDeleteAll = async () => {
+    if (selectedIds.size === 0) return;
+
+    try {
+      setIsDeletingAll(true);
+      const deletePromises = Array.from(selectedIds).map((id) =>
+        prayerService.deletePrayerRequest(id)
+      );
+      await Promise.all(deletePromises);
+      
+      toast({
+        title: "Sucesso",
+        description: `${selectedIds.size} pedido(s) de oração excluído(s) com sucesso!`,
+      });
+      
+      setSelectedIds(new Set());
+      setDeleteAllModalOpen(false);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir alguns pedidos.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
+  const isAllSelected = prayerRequests.length > 0 && selectedIds.size === prayerRequests.length;
 
   const openViewModal = (request: PrayerRequest) => {
     setSelectedRequest(request);
@@ -553,14 +607,27 @@ const AdminDashboard = () => {
     <Card>
       <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
         <CardTitle>Pedidos de Oração</CardTitle>
-        <Button
-          size="sm"
-          onClick={()=> setCreateModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Pedido
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          {selectedIds.size > 0 && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setDeleteAllModalOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir Selecionados ({selectedIds.size})
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={()=> setCreateModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Pedido
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -568,6 +635,12 @@ const AdminDashboard = () => {
             <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </th>
                   <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Nome
                   </th>
@@ -588,6 +661,14 @@ const AdminDashboard = () => {
               <tbody className="divide-y divide-gray-200">
                 {prayerRequests.map((request) => (
                   <tr key={request.id}>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                      <Checkbox
+                        checked={selectedIds.has(request.id)}
+                        onCheckedChange={(checked) =>
+                          handleSelectItem(request.id, checked)
+                        }
+                      />
+                    </td>
                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                       {request.name}
                     </td>
@@ -654,6 +735,32 @@ const AdminDashboard = () => {
         onClose={closeCreateModal}
         onSuccess={fetchData}
       />
+      <Dialog open={deleteAllModalOpen} onOpenChange={setDeleteAllModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir {selectedIds.size} pedido(s) de oração selecionado(s)? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteAllModalOpen(false)}
+              disabled={isDeletingAll}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAll}
+              disabled={isDeletingAll}
+            >
+              {isDeletingAll ? "Excluindo..." : "Excluir Todos"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

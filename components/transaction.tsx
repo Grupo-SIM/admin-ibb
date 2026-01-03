@@ -39,6 +39,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Info,
 } from "lucide-react";
 import { toast } from 'react-toastify';
 import { jsonToExcel } from "@/services/excel";
@@ -68,7 +69,11 @@ interface Withdrawal {
   amount: number;
   status: "PENDING" | "COMPLETED" | "FAILED" | "APPROVED";
   pixKey: string;
+  receiptImage?: string;
+  fee?: string;
+  rejectionReason?: string | null;
   createdAt: string;
+  updatedAt: string;
   user: {
     name: string;
     email: string;
@@ -82,6 +87,7 @@ interface WithdrawalResponse {
 
 interface FinancialSummary {
   availableBalance: number;
+  netBalance: number;
   pendingWithdraws: number;
   lockedBalance: number;
 }
@@ -117,13 +123,13 @@ const formatCPFCNPJ = (value: string) => {
 
 const getStatusColor = (status: string) => {
   const statusColors: any = {
-    PENDING: "bg-yellow-100 text-yellow-800",
-    COMPLETED: "bg-green-100 text-green-800",
-    FAILED: "bg-red-100 text-red-800",
-    PROCESSING: "bg-blue-100 text-blue-800",
-    APPROVED: "bg-yellow-100 text-yellow-800", // Tratado como PENDING
+    PENDING: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+    COMPLETED: "bg-green-100 text-green-800 hover:bg-green-200",
+    FAILED: "bg-red-100 text-red-800 hover:bg-red-200",
+    PROCESSING: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+    APPROVED: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200", // Tratado como PENDING
   };
-  return statusColors[status] || "bg-gray-100 text-gray-800";
+  return statusColors[status] || "bg-gray-100 text-gray-800 hover:bg-gray-200";
 };
 
 // Função para obter texto traduzido do status
@@ -131,7 +137,7 @@ const getStatusText = (status: string) => {
   const statusTexts: any = {
     PENDING: "Pendente",
     COMPLETED: "Concluído",
-    FAILED: "Falhou",
+    FAILED: "Recusado",
     PROCESSING: "Processando",
     APPROVED: "Pendente", // Ainda aguardando processamento final
   };
@@ -178,6 +184,7 @@ const TransactionsPage = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
     availableBalance: 0,
+    netBalance: 0,
     pendingWithdraws: 0,
     lockedBalance: 0,
   });
@@ -200,11 +207,13 @@ const TransactionsPage = () => {
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [pixKey, setPixKey] = useState("");
   const [noDiaUtilModal, setNoDiaUtilModal] = useState(false);
-  const [feriadoInfo, setFeriadoInfo] = useState<{name: string} | null>(null);
+  const [feriadoInfo, setFeriadoInfo] = useState<{ name: string } | null>(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptImageUrl, setReceiptImageUrl] = useState("");
   const API_URL = "https://api-dom.jbmidia.com";
 
   // Verificar se há saque pendente (PENDING ou APPROVED)
-  const hasPendingWithdraw = withdrawals.some(w => 
+  const hasPendingWithdraw = withdrawals.some(w =>
     w.status === 'PENDING' || w.status === 'APPROVED'
   );
 
@@ -221,12 +230,12 @@ const TransactionsPage = () => {
     const checkDiaUtil = async () => {
       const hoje = new Date();
       const dataHoje = hoje.toISOString().split('T')[0];
-      
+
       if (isWeekend(hoje)) {
         setNoDiaUtilModal(true);
         return;
       }
-      
+
       const feriados = await getFeriados();
       interface Feriado {
         date: string;
@@ -234,13 +243,13 @@ const TransactionsPage = () => {
       }
 
       const feriado = feriados.find((f: Feriado) => f.date === dataHoje);
-      
+
       if (feriado) {
         setFeriadoInfo(feriado);
         setNoDiaUtilModal(true);
       }
     };
-    
+
     checkDiaUtil();
   }, []);
 
@@ -302,6 +311,28 @@ const TransactionsPage = () => {
       toast.error("Não foi possível exportar o arquivo Excel.");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleViewReceipt = (imageUrl: string) => {
+    setReceiptImageUrl(imageUrl);
+    setReceiptModalOpen(true);
+  };
+
+  const handleDownloadReceipt = async (imageUrl: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nota-fiscal-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error("Erro ao baixar a nota fiscal");
     }
   };
 
@@ -455,7 +486,7 @@ const TransactionsPage = () => {
                 Saldo disponível
               </p>
               <h3 className="text-2xl font-bold">
-                {formatCurrency(financialSummary.availableBalance)}
+                {formatCurrency(financialSummary.netBalance)}
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
@@ -672,6 +703,7 @@ const TransactionsPage = () => {
               <TableHead className="w-[120px] lg:w-auto">Valor</TableHead>
               <TableHead className="w-[120px] lg:w-auto">Chave PIX</TableHead>
               <TableHead className="w-[100px] lg:w-auto">Status</TableHead>
+              <TableHead className="w-[150px] lg:w-auto">Nota Fiscal</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -693,13 +725,61 @@ const TransactionsPage = () => {
                   {withdrawal.pixKey}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    className={`whitespace-nowrap ${getStatusColor(
-                      withdrawal.status
-                    )}`}
-                  >
-                    {getStatusText(withdrawal.status)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className={`whitespace-nowrap ${getStatusColor(
+                        withdrawal.status
+                      )}`}
+                    >
+                      {getStatusText(withdrawal.status)}
+                    </Badge>
+                    {withdrawal.status === "FAILED" && withdrawal.rejectionReason && (
+                      <div className="relative group">
+                        <Info className="h-4 w-4 text-red-500 cursor-help" />
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-0">
+                            <div className="border-4 border-transparent border-b-gray-900"></div>
+                          </div>
+                          <div className="font-semibold mb-1">Razão da Rejeição:</div>
+                          <div>{withdrawal.rejectionReason}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {withdrawal.receiptImage ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleViewReceipt(withdrawal.receiptImage!)}
+                        className="flex items-center gap-1 px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Ver
+                      </button>
+                      <button
+                        onClick={() => handleDownloadReceipt(withdrawal.receiptImage!)}
+                        className="flex items-center gap-1 px-3 py-1 text-sm border border-green-500 text-green-500 rounded-md hover:bg-green-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Baixar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <div className="w-4 h-4 bg-gray-200 rounded flex items-center justify-center">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-sm">Não disponível</span>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -762,11 +842,10 @@ const TransactionsPage = () => {
             <Button
               onClick={() => setIsModalOpen(true)}
               disabled={hasPendingWithdraw}
-              className={`${
-                hasPendingWithdraw 
-                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed" 
+              className={`${hasPendingWithdraw
+                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed"
                   : "bg-green-600 hover:bg-green-700"
-              } text-white`}
+                } text-white`}
             >
               {hasPendingWithdraw ? 'Saque Pendente' : 'Solicitar Saque'}
             </Button>
@@ -777,7 +856,7 @@ const TransactionsPage = () => {
             <DialogHeader>
               <DialogTitle>Solicitar Saque</DialogTitle>
             </DialogHeader>
-            
+
             {/* Aviso sobre saque pendente no modal */}
             {hasPendingWithdraw && (
               <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md mb-4">
@@ -795,7 +874,7 @@ const TransactionsPage = () => {
               {(isWeekend(new Date()) || feriadoInfo) && (
                 <div className="p-3 bg-red-50 border border-red-300 rounded-md">
                   <p className="text-red-600 font-medium text-center">
-                    {isWeekend(new Date()) 
+                    {isWeekend(new Date())
                       ? "Atenção! Hoje é final de semana. O processamento do seu saque só iniciará no próximo dia útil."
                       : `Atenção! Hoje é ${feriadoInfo?.name || 'feriado'}. O processamento do seu saque só iniciará no próximo dia útil.`}
                   </p>
@@ -813,12 +892,11 @@ const TransactionsPage = () => {
                       type="text"
                       value={withdrawalAmount}
                       onChange={handleAmountChange}
-                      className={`pl-8 ${
-                        parseFloat(withdrawalAmount.replace(",", ".")) >
-                        financialSummary.availableBalance - 2
+                      className={`pl-8 ${parseFloat(withdrawalAmount.replace(",", ".")) >
+                          financialSummary.availableBalance - 2
                           ? "border-red-500 focus:ring-red-500"
                           : ""
-                      }`}
+                        }`}
                       placeholder="0,00"
                     />
                   </div>
@@ -871,14 +949,13 @@ const TransactionsPage = () => {
                   !withdrawalAmount ||
                   !pixKey ||
                   parseFloat(withdrawalAmount.replace(",", ".")) >
-                    financialSummary.availableBalance - 1 ||
+                  financialSummary.availableBalance - 1 ||
                   parseFloat(withdrawalAmount.replace(",", ".")) < 100
                 }
-                className={`${
-                  hasPendingWithdraw 
-                    ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed" 
+                className={`${hasPendingWithdraw
+                    ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed"
                     : "bg-green-600 hover:bg-green-700"
-                } text-white`}
+                  } text-white`}
               >
                 {isWithdrawing ? (
                   <>
@@ -894,7 +971,7 @@ const TransactionsPage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
+
         <Dialog open={noDiaUtilModal} onOpenChange={setNoDiaUtilModal}>
           <DialogContent>
             <DialogHeader>
@@ -902,7 +979,7 @@ const TransactionsPage = () => {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <p className="text-gray-700 text-center">
-                {isWeekend(new Date()) 
+                {isWeekend(new Date())
                   ? "Hoje é final de semana. Saques só podem ser solicitados em dias úteis."
                   : `Hoje é ${feriadoInfo?.name || 'feriado'}. Saques só podem ser solicitados em dias úteis.`}
               </p>
@@ -911,7 +988,7 @@ const TransactionsPage = () => {
               </p>
             </div>
             <DialogFooter>
-              <Button 
+              <Button
                 onClick={() => setNoDiaUtilModal(false)}
                 className="w-full"
               >
@@ -1016,7 +1093,7 @@ const TransactionsPage = () => {
 
         <TabsContent value="withdrawals" className="space-y-6">
           {renderSummaryCards()}
-          
+
           {/* Card de status do saque atual */}
           {withdrawals.length > 0 && (
             <Card>
@@ -1025,11 +1102,10 @@ const TransactionsPage = () => {
                 {withdrawals.slice(0, 1).map((withdrawal) => (
                   <div key={withdrawal.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-4">
-                      <div className={`h-3 w-3 rounded-full ${
-                        withdrawal.status === 'PENDING' || withdrawal.status === 'APPROVED' ? 'bg-yellow-500' :
-                        withdrawal.status === 'COMPLETED' ? 'bg-green-500' :
-                        withdrawal.status === 'FAILED' ? 'bg-red-500' : 'bg-gray-500'
-                      }`}></div>
+                      <div className={`h-3 w-3 rounded-full ${withdrawal.status === 'PENDING' || withdrawal.status === 'APPROVED' ? 'bg-yellow-500' :
+                          withdrawal.status === 'COMPLETED' ? 'bg-green-500' :
+                            withdrawal.status === 'FAILED' ? 'bg-red-500' : 'bg-gray-500'
+                        }`}></div>
                       <div>
                         <p className="font-medium">
                           Saque de {formatCurrency(withdrawal.amount)}
@@ -1039,9 +1115,23 @@ const TransactionsPage = () => {
                         </p>
                       </div>
                     </div>
-                    <Badge className={getStatusColor(withdrawal.status)}>
-                      {getStatusText(withdrawal.status)}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(withdrawal.status)}>
+                        {getStatusText(withdrawal.status)}
+                      </Badge>
+                      {withdrawal.status === "FAILED" && withdrawal.rejectionReason && (
+                        <div className="relative group">
+                          <Info className="h-4 w-4 text-red-500 cursor-help" />
+                          <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                            <div className="absolute bottom-full right-4 mb-0">
+                              <div className="border-4 border-transparent border-b-gray-900"></div>
+                            </div>
+                            <div className="font-semibold mb-1">Razão da Rejeição:</div>
+                            <div>{withdrawal.rejectionReason}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -1057,6 +1147,41 @@ const TransactionsPage = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal para visualizar nota fiscal */}
+      <Dialog open={receiptModalOpen} onOpenChange={setReceiptModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Nota Fiscal</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center items-center p-4">
+            {receiptImageUrl && (
+              <img
+                src={receiptImageUrl}
+                alt="Nota Fiscal"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReceiptModalOpen(false)}
+            >
+              Fechar
+            </Button>
+            <Button
+              onClick={() => receiptImageUrl && handleDownloadReceipt(receiptImageUrl)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Baixar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
