@@ -5,6 +5,7 @@ services:
     environment:
       - NODE_ENV=production
       - API_URL=https://api-bosque.jbmidia.com
+      - HOSTNAME=0.0.0.0
     networks:
       - externa
       - interna

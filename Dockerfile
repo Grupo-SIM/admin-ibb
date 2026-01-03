@@ -1,4 +1,4 @@
-FROM node:18-alpine as builder
+FROM node:20-alpine AS builder
 WORKDIR /my-space
 
 COPY package.json package-lock.json ./
@@ -6,7 +6,7 @@ RUN npm i --legacy-peer-deps
 COPY . .
 RUN npm run build
 
-FROM node:18-alpine as runner
+FROM node:20-alpine AS runner
 WORKDIR /my-space
 COPY --from=builder /my-space/package.json .
 COPY --from=builder /my-space/package-lock.json .
