@@ -893,7 +893,7 @@ const TransactionsPage = () => {
                       value={withdrawalAmount}
                       onChange={handleAmountChange}
                       className={`pl-8 ${parseFloat(withdrawalAmount.replace(",", ".")) >
-                          financialSummary.availableBalance - 2
+                          financialSummary.netBalance - 2
                           ? "border-red-500 focus:ring-red-500"
                           : ""
                         }`}
@@ -902,7 +902,7 @@ const TransactionsPage = () => {
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
                     Saldo máximo para saque: R${" "}
-                    {(financialSummary.availableBalance - 2)
+                    {(financialSummary.netBalance - 2)
                       .toFixed(2)
                       .replace(".", ",")}
                   </p>
@@ -949,7 +949,7 @@ const TransactionsPage = () => {
                   !withdrawalAmount ||
                   !pixKey ||
                   parseFloat(withdrawalAmount.replace(",", ".")) >
-                  financialSummary.availableBalance - 1 ||
+                  financialSummary.netBalance - 1 ||
                   parseFloat(withdrawalAmount.replace(",", ".")) < 100
                 }
                 className={`${hasPendingWithdraw
