@@ -652,7 +652,7 @@ const TransactionsPage = () => {
                   {new Date(transaction.createdAt).toLocaleDateString("pt-BR")}
                 </TableCell>
                 <TableCell className="font-mono text-sm whitespace-nowrap">
-                  {transaction?.description}
+                  {stripInternalTags(transaction?.description)}
                 </TableCell>
                 <TableCell className="font-mono text-sm whitespace-nowrap">
                   {transaction?.name}
