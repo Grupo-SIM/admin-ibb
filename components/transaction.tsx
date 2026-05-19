@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { toast } from 'react-toastify';
 import { jsonToExcel } from "@/services/excel";
+import { MACHINE_API_URL, INTERNAL_API_URL, BOSQUE_USER_ID } from "@/constants/api";
 
 interface Transaction {
   id: string;
@@ -87,9 +88,15 @@ interface WithdrawalResponse {
 
 interface FinancialSummary {
   availableBalance: number;
-  netBalance: number;
   pendingWithdraws: number;
   lockedBalance: number;
+  netLockedBalance?: string | number;
+}
+
+interface PlatformFees {
+  taxaFixa: number;
+  taxaPercent: number;
+  saqueMin: number;
 }
 
 interface PaginationMeta {
@@ -127,21 +134,25 @@ const getStatusColor = (status: string) => {
     COMPLETED: "bg-green-100 text-green-800 hover:bg-green-200",
     FAILED: "bg-red-100 text-red-800 hover:bg-red-200",
     PROCESSING: "bg-blue-100 text-blue-800 hover:bg-blue-200",
-    APPROVED: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200", // Tratado como PENDING
+    APPROVED: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
   };
   return statusColors[status] || "bg-gray-100 text-gray-800 hover:bg-gray-200";
 };
 
-// Função para obter texto traduzido do status
 const getStatusText = (status: string) => {
   const statusTexts: any = {
     PENDING: "Pendente",
     COMPLETED: "Concluído",
     FAILED: "Recusado",
     PROCESSING: "Processando",
-    APPROVED: "Pendente", // Ainda aguardando processamento final
+    APPROVED: "Pendente",
   };
   return statusTexts[status] || status;
+};
+
+const stripInternalTags = (description?: string | null) => {
+  if (!description) return "";
+  return description.replace(/\[TENANT:[^\]]+\]/gi, "").replace(/\[CPF_DONO:[^\]]+\]/gi, "").trim();
 };
 
 const formatCurrency = (value: number) => {
@@ -151,26 +162,6 @@ const formatCurrency = (value: number) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
-};
-
-const getFeriados = async () => {
-  const ano = new Date().getFullYear();
-  try {
-    const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
-    const data = await response.json();
-    return data.map((feriado: any) => ({
-      date: feriado.date,
-      name: feriado.name
-    }));
-  } catch (error) {
-    console.error('Erro ao buscar feriados:', error);
-    return [];
-  }
-};
-
-const isWeekend = (date: Date) => {
-  const day = date.getDay();
-  return day === 0 || day === 6;
 };
 
 const TransactionsPage = () => {
@@ -184,9 +175,13 @@ const TransactionsPage = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
     availableBalance: 0,
-    netBalance: 0,
     pendingWithdraws: 0,
     lockedBalance: 0,
+  });
+  const [platformFees, setPlatformFees] = useState<PlatformFees>({
+    taxaFixa: 2,
+    taxaPercent: 0,
+    saqueMin: 100,
   });
   const [paginationMeta, setPaginationMeta] = useState<PaginationMeta>({
     currentPage: 1,
@@ -202,104 +197,150 @@ const TransactionsPage = () => {
       totalPages: 1,
     });
   const [isLoading, setIsLoading] = useState(false);
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [withdrawalAmount, setWithdrawalAmount] = useState("");
-  const [pixKey, setPixKey] = useState("");
-  const [noDiaUtilModal, setNoDiaUtilModal] = useState(false);
-  const [feriadoInfo, setFeriadoInfo] = useState<{ name: string } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
-  const API_URL = "https://api-dom.jbmidia.com";
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [pixKey, setPixKey] = useState("");
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  // Verificar se há saque pendente (PENDING ou APPROVED)
   const hasPendingWithdraw = withdrawals.some(w =>
     w.status === 'PENDING' || w.status === 'APPROVED'
   );
 
-  const [walletPerDescription, setWalletPerDescription] = useState<{
-    [key: string]: number;
-  }>({
-    oferta: 0,
-    primícia: 0,
-    dizimo: 0,
-    fundação: 0,
-  });
+  useEffect(() => {
+    if (activeTab === "withdrawals") {
+      fetchWithdrawals(1);
+    } else {
+      fetchTransactions(1);
+    }
+    fetchFinancialSummary();
+  }, [activeTab]);
 
   useEffect(() => {
-    const checkDiaUtil = async () => {
-      const hoje = new Date();
-      const dataHoje = hoje.toISOString().split('T')[0];
-
-      if (isWeekend(hoje)) {
-        setNoDiaUtilModal(true);
-        return;
-      }
-
-      const feriados = await getFeriados();
-      interface Feriado {
-        date: string;
-        name: string;
-      }
-
-      const feriado = feriados.find((f: Feriado) => f.date === dataHoje);
-
-      if (feriado) {
-        setFeriadoInfo(feriado);
-        setNoDiaUtilModal(true);
-      }
-    };
-
-    checkDiaUtil();
+    fetchPlatformFees();
   }, []);
+
+  const handleSyncWithdrawals = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch(`${MACHINE_API_URL}/admin/sync-withdrawals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: BOSQUE_USER_ID }),
+      });
+      if (!response.ok) throw new Error("Falha ao sincronizar");
+      const data = await response.json();
+      const { created, updated, total } = data?.data ?? {};
+      toast.success(`Sincronização concluída: ${created} criados, ${updated} atualizados (${total} total)`);
+      fetchWithdrawals(1);
+    } catch {
+      toast.error("Não foi possível sincronizar o histórico de saques.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleWithdrawalRequest = async () => {
+    const amount = parseFloat(withdrawalAmount);
+    if (!amount || amount <= 0) { toast.error("Insira um valor válido."); return; }
+    if (!pixKey.trim()) { toast.error("Insira uma chave PIX válida."); return; }
+    if (amount < platformFees.saqueMin) {
+      toast.error(`Valor mínimo para saque: ${formatCurrency(platformFees.saqueMin)}`); return;
+    }
+    if (amount > (financialSummary?.availableBalance ?? 0)) {
+      toast.error("Saldo insuficiente para realizar o saque."); return;
+    }
+    setIsWithdrawing(true);
+    try {
+      const response = await fetch(`${INTERNAL_API_URL}/bosque/finance/withdraw`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: BOSQUE_USER_ID, amount, pixKey: pixKey.trim() }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Falha ao solicitar saque");
+      }
+      toast.success(`Saque de ${formatCurrency(amount)} solicitado com sucesso!`);
+      setIsWithdrawModalOpen(false);
+      setWithdrawalAmount("");
+      setPixKey("");
+      fetchFinancialSummary();
+      fetchWithdrawals(1);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível solicitar o saque.");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, "");
+    setWithdrawalAmount((parseInt(value || "0") / 100).toFixed(2));
+  };
+
+  const handlePixKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const n = e.target.value.replace(/\D/g, "");
+    if (n.length <= 11) {
+      setPixKey(n.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2"));
+    } else {
+      setPixKey(n.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2"));
+    }
+  };
+
+  const fetchPlatformFees = async () => {
+    try {
+      const response = await fetch(`${MACHINE_API_URL}/admin/plataformas/taxas`);
+      if (!response.ok) return;
+      const data = await response.json();
+      const bosque = data?.data?.BOSQUE;
+      if (bosque) {
+        setPlatformFees({
+          taxaFixa: bosque.TAXA_SAQUE_FIXA ?? 2,
+          taxaPercent: bosque.TAXA_SAQUE_PERCENT ?? 0,
+          saqueMin: bosque.SAQUE_MIN ?? 100,
+        });
+      }
+    } catch {}
+  };
 
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
-      let url = `${API_URL}/payments/all-transactions-excel?`;
+      let url = `${INTERNAL_API_URL}/bosque/finance/transactions?userId=${BOSQUE_USER_ID}&limit=5000`;
 
-      if (startDate) {
-        url += `&startDate=${startDate}`;
-      }
-      if (endDate) {
-        url += `&endDate=${endDate}`;
-      }
-      if (statusFilter && statusFilter !== "ALL") {
-        url += `&status=${statusFilter}`;
-      }
-      if (description && description !== "ALL") {
-        url += `&description=${description}`;
-      }
+      if (startDate) url += `&startDate=${startDate}`;
+      if (endDate) url += `&endDate=${endDate}`;
+      if (statusFilter && statusFilter !== "ALL") url += `&status=${statusFilter}`;
+      if (description && description !== "ALL") url += `&description=${description}`;
 
       const response = await fetch(url, {
         headers: {
           accept: "*/*",
-          "x-access-token": "0ba3f139-b1ff-4ded-a5ef-71ccb1c9482f",
         },
       });
 
       if (!response.ok) throw new Error("Falha ao exportar dados");
-      // Define columns for Excel export
+
       const columns = [
-        { header: "Nome", key: "nome", width: 35 },
-        { header: "Data", key: "data", width: 15 },
-        { header: "Tipo", key: "tipo", width: 15 },
+        { header: "Nome", key: "name", width: 35 },
+        { header: "Data", key: "createdAt", width: 15 },
+        { header: "Tipo", key: "description", width: 30 },
         { header: "Email", key: "email", width: 35 },
-        { header: "Número de telefone", key: "número de telefone", width: 35 },
-        { header: "Documento", key: "documento", width: 25 },
-        { header: "Tipo do documento", key: "tipo do documento", width: 15 },
-        { header: "Valor Recebido", key: "valor", width: 15 },
+        { header: "Valor Recebido", key: "amountWithoutAllFee", width: 15 },
+        { header: "Status", key: "status", width: 15 },
       ];
-      const transactions0 = await response.json();
-      console.log(transactions0);
-      // Format data before export
-      const formattedTransactions = transactions0.map((transaction: any) => ({
+
+      const result = await response.json();
+      const formattedTransactions = result.transactions.map((transaction: any) => ({
         ...transaction,
+        description: stripInternalTags(transaction.description),
         createdAt: new Date(transaction.createdAt).toLocaleDateString("pt-BR"),
         amountWithoutAllFee: formatCurrency(transaction.amountWithoutAllFee),
       }));
 
-      // Generate and download Excel file
       jsonToExcel(
         formattedTransactions,
         columns,
@@ -336,21 +377,11 @@ const TransactionsPage = () => {
     }
   };
 
-  useEffect(() => {
-    if (activeTab === "withdrawals") {
-      fetchWithdrawals(1);
-    } else {
-      fetchTransactions(1);
-    }
-    fetchFinancialSummary();
-  }, [activeTab]);
-
   const fetchFinancialSummary = async () => {
     try {
-      const response = await fetch(`${API_URL}/payments/summary`, {
+      const response = await fetch(`${INTERNAL_API_URL}/bosque/finance/summary?userId=${BOSQUE_USER_ID}`, {
         headers: {
           accept: "*/*",
-          "x-access-token": "0ba3f139-b1ff-4ded-a5ef-71ccb1c9482f",
           "Content-Type": "application/json",
         },
       });
@@ -364,25 +395,16 @@ const TransactionsPage = () => {
   const fetchTransactions = async (page = 1) => {
     setIsLoading(true);
     try {
-      let url = `${API_URL}/payments/history?page=${page}&limit=${paginationMeta.itemsPerPage}`;
+      let url = `${INTERNAL_API_URL}/bosque/finance/transactions?userId=${BOSQUE_USER_ID}&page=${page}&limit=${paginationMeta.itemsPerPage}`;
 
-      if (startDate) {
-        url += `&startDate=${startDate}`;
-      }
-      if (endDate) {
-        url += `&endDate=${endDate}`;
-      }
-      if (statusFilter && statusFilter !== "ALL") {
-        url += `&status=${statusFilter}`;
-      }
-      if (description && description !== "ALL") {
-        url += `&description=${description}`;
-      }
+      if (startDate) url += `&startDate=${startDate}`;
+      if (endDate) url += `&endDate=${endDate}`;
+      if (statusFilter && statusFilter !== "ALL") url += `&status=${statusFilter}`;
+      if (description && description !== "ALL") url += `&description=${description}`;
 
       const response = await fetch(url, {
         headers: {
           accept: "*/*",
-          "x-access-token": "0ba3f139-b1ff-4ded-a5ef-71ccb1c9482f",
           "Content-Type": "application/json",
         },
       });
@@ -400,12 +422,11 @@ const TransactionsPage = () => {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `${API_URL}/payments/withdrawals?page=${page}&limit=${withdrawalsPaginationMeta.itemsPerPage}`,
+        `${INTERNAL_API_URL}/bosque/finance/withdrawals?userId=${BOSQUE_USER_ID}&page=${page}&limit=${withdrawalsPaginationMeta.itemsPerPage}`,
         {
           headers: {
             accept: "*/*",
-            "x-access-token": "0ba3f139-b1ff-4ded-a5ef-71ccb1c9482f",
-            "Content-Type": "application/json",
+              "Content-Type": "application/json",
           },
         }
       );
@@ -419,63 +440,6 @@ const TransactionsPage = () => {
     }
   };
 
-  const handleWithdrawalRequest = async () => {
-    if (!withdrawalAmount || parseFloat(withdrawalAmount) <= 0) {
-      toast.error("Por favor, insira um valor válido para o saque.");
-      return;
-    }
-
-    if (!pixKey.trim()) {
-      toast.error("Por favor, insira uma chave PIX válida.");
-      return;
-    }
-
-    setIsWithdrawing(true);
-    try {
-      const response = await fetch(`${API_URL}/payments/withdraw`, {
-        method: "POST",
-        headers: {
-          accept: "*/*",
-          "x-access-token": "0ba3f139-b1ff-4ded-a5ef-71ccb1c9482f",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: parseFloat(withdrawalAmount),
-          pixKey: pixKey.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Falha ao solicitar saque");
-      }
-
-      toast.success(`PIX enviado com sucesso! ✅ Seu saque de ${formatCurrency(parseFloat(withdrawalAmount))} foi processado e está sendo transferido para sua conta.`);
-
-      setIsModalOpen(false);
-      setWithdrawalAmount("");
-      setPixKey("");
-      fetchWithdrawals(withdrawalsPaginationMeta.currentPage);
-      fetchFinancialSummary();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Não foi possível solicitar o saque.";
-      toast.error(errorMessage);
-    } finally {
-      setIsWithdrawing(false);
-    }
-  };
-
-  const handlePixKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formattedValue = formatCPFCNPJ(e.target.value);
-    setPixKey(formattedValue);
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, "");
-    const formattedValue = (parseInt(value || "0") / 100).toFixed(2);
-    setWithdrawalAmount(formattedValue);
-  };
-
   const renderSummaryCards = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
       <Card>
@@ -486,7 +450,7 @@ const TransactionsPage = () => {
                 Saldo disponível
               </p>
               <h3 className="text-2xl font-bold">
-                {formatCurrency(financialSummary.netBalance)}
+                {formatCurrency(financialSummary.availableBalance)}
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
@@ -504,7 +468,7 @@ const TransactionsPage = () => {
                 Saque em processo
               </p>
               <h3 className="text-2xl font-bold">
-                {formatCurrency(financialSummary.pendingWithdraws)}
+                {formatCurrency(Number(financialSummary.netLockedBalance ?? financialSummary.pendingWithdraws))}
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center">
@@ -531,6 +495,27 @@ const TransactionsPage = () => {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+
+  const renderFeeInfo = () => (
+    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+      <div className="flex items-start gap-2">
+        <Info className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+        <div className="text-sm text-gray-600 space-y-1">
+          <p>
+            <span className="font-medium">Taxa de saque:</span>{" "}
+            {formatCurrency(platformFees.taxaFixa)}
+            {platformFees.taxaPercent > 0
+              ? ` + ${(platformFees.taxaPercent * 100).toFixed(2)}% do valor`
+              : ""}
+          </p>
+          <p>
+            <span className="font-medium">Valor mínimo:</span>{" "}
+            {formatCurrency(platformFees.saqueMin)}
+          </p>
+        </div>
+      </div>
     </div>
   );
 
@@ -815,7 +800,6 @@ const TransactionsPage = () => {
           </div>
         </div>
 
-        {/* Banner de aviso para saque pendente */}
         {hasPendingWithdraw && (
           <div className="w-full bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
             <div className="flex items-center">
@@ -832,6 +816,7 @@ const TransactionsPage = () => {
             </div>
           </div>
         )}
+
         <div className="flex justify-between items-center mb-6">
           <TabsList>
             <TabsTrigger value="transactions">Transações</TabsTrigger>
@@ -839,164 +824,30 @@ const TransactionsPage = () => {
           </TabsList>
 
           <div className="flex gap-4">
+            {activeTab === "withdrawals" && (
+              <Button
+                onClick={handleSyncWithdrawals}
+                disabled={isSyncing}
+                variant="outline"
+              >
+                {isSyncing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Sincronizar Histórico"
+                )}
+              </Button>
+            )}
             <Button
-              onClick={() => setIsModalOpen(true)}
-              disabled={hasPendingWithdraw}
-              className={`${hasPendingWithdraw
-                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed"
-                  : "bg-green-600 hover:bg-green-700"
-                } text-white`}
+              onClick={() => setIsWithdrawModalOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {hasPendingWithdraw ? 'Saque Pendente' : 'Solicitar Saque'}
+              Solicitar Saque
             </Button>
           </div>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Solicitar Saque</DialogTitle>
-            </DialogHeader>
-
-            {/* Aviso sobre saque pendente no modal */}
-            {hasPendingWithdraw && (
-              <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md mb-4">
-                <div className="flex items-center">
-                  <svg className="h-5 w-5 text-yellow-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <p className="text-yellow-800 font-medium">
-                    Você já possui um saque pendente. Aguarde a aprovação para solicitar um novo.
-                  </p>
-                </div>
-              </div>
-            )}
-            <div className="grid gap-4 py-4">
-              {(isWeekend(new Date()) || feriadoInfo) && (
-                <div className="p-3 bg-red-50 border border-red-300 rounded-md">
-                  <p className="text-red-600 font-medium text-center">
-                    {isWeekend(new Date())
-                      ? "Atenção! Hoje é final de semana. O processamento do seu saque só iniciará no próximo dia útil."
-                      : `Atenção! Hoje é ${feriadoInfo?.name || 'feriado'}. O processamento do seu saque só iniciará no próximo dia útil.`}
-                  </p>
-                </div>
-              )}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Valor
-                </Label>
-                <div className="col-span-3 relative">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="absolute left-3  ">R$</span>
-                    <Input
-                      id="amount"
-                      type="text"
-                      value={withdrawalAmount}
-                      onChange={handleAmountChange}
-                      className={`pl-8 ${parseFloat(withdrawalAmount.replace(",", ".")) >
-                          financialSummary.netBalance - 2
-                          ? "border-red-500 focus:ring-red-500"
-                          : ""
-                        }`}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Saldo máximo para saque: R${" "}
-                    {(financialSummary.netBalance - 2)
-                      .toFixed(2)
-                      .replace(".", ",")}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="pixKey" className="text-right">
-                  PIX (CPF/CNPJ)
-                </Label>
-                <div className="col-span-3">
-                  <Input
-                    id="pixKey"
-                    type="text"
-                    value={pixKey}
-                    onChange={handlePixKeyChange}
-                    placeholder="Digite seu CPF ou CNPJ"
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 text-center">
-                Será cobrada uma taxa de R$ 2,00 por saque
-              </p>
-              <p className="text-sm text-red-500 font-medium text-center mt-1">
-                O valor mínimo para saque deve ser de R$ 100,00
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setPixKey("");
-                  setWithdrawalAmount("");
-                }}
-                disabled={isWithdrawing}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleWithdrawalRequest}
-                disabled={
-                  isWithdrawing ||
-                  hasPendingWithdraw ||
-                  !withdrawalAmount ||
-                  !pixKey ||
-                  parseFloat(withdrawalAmount.replace(",", ".")) >
-                  financialSummary.netBalance - 1 ||
-                  parseFloat(withdrawalAmount.replace(",", ".")) < 100
-                }
-                className={`${hasPendingWithdraw
-                    ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700"
-                  } text-white`}
-              >
-                {isWithdrawing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Processando...
-                  </>
-                ) : hasPendingWithdraw ? (
-                  "Saque Pendente"
-                ) : (
-                  "Confirmar"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={noDiaUtilModal} onOpenChange={setNoDiaUtilModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Aviso Importante</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <p className="text-gray-700 text-center">
-                {isWeekend(new Date())
-                  ? "Hoje é final de semana. Saques só podem ser solicitados em dias úteis."
-                  : `Hoje é ${feriadoInfo?.name || 'feriado'}. Saques só podem ser solicitados em dias úteis.`}
-              </p>
-              <p className="text-sm text-gray-500 text-center">
-                Por favor, aguarde o próximo dia útil para solicitar seu saque.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={() => setNoDiaUtilModal(false)}
-                className="w-full"
-              >
-                Entendi
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <TabsContent value="transactions" className="space-y-6">
           <Card>
@@ -1093,8 +944,8 @@ const TransactionsPage = () => {
 
         <TabsContent value="withdrawals" className="space-y-6">
           {renderSummaryCards()}
+          {renderFeeInfo()}
 
-          {/* Card de status do saque atual */}
           {withdrawals.length > 0 && (
             <Card>
               <CardContent className="p-6">
@@ -1148,40 +999,116 @@ const TransactionsPage = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Modal para visualizar nota fiscal */}
-      <Dialog open={receiptModalOpen} onOpenChange={setReceiptModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+      {/* Modal de Saque */}
+      <Dialog open={isWithdrawModalOpen} onOpenChange={setIsWithdrawModalOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nota Fiscal</DialogTitle>
+            <DialogTitle>Solicitar Saque</DialogTitle>
           </DialogHeader>
-          <div className="flex justify-center items-center p-4">
-            {receiptImageUrl && (
-              <img
-                src={receiptImageUrl}
-                alt="Nota Fiscal"
-                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+          <div className="grid gap-4 py-4">
+            {hasPendingWithdraw && (
+              <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                <p className="text-yellow-700 text-sm text-center font-medium">
+                  Já existe um saque pendente. Aguarde a aprovação antes de solicitar novo.
+                </p>
+              </div>
+            )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="wd-amount" className="text-right">Valor</Label>
+              <div className="col-span-3 relative">
+                <span className="absolute left-3 top-2.5 text-gray-500">R$</span>
+                <Input
+                  id="wd-amount"
+                  type="text"
+                  value={withdrawalAmount}
+                  onChange={handleAmountChange}
+                  disabled={hasPendingWithdraw}
+                  className="pl-8"
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Disponível: {formatCurrency(financialSummary?.availableBalance ?? 0)}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="wd-pix" className="text-right">PIX</Label>
+              <Input
+                id="wd-pix"
+                type="text"
+                value={pixKey}
+                onChange={handlePixKeyChange}
+                disabled={hasPendingWithdraw}
+                className="col-span-3"
+                placeholder="CPF ou CNPJ"
               />
+            </div>
+            <p className="text-xs text-gray-500 text-center">
+              Valor mínimo: {formatCurrency(platformFees.saqueMin)} · Taxa: {formatCurrency(platformFees.taxaFixa)}
+            </p>
+            {parseFloat(withdrawalAmount) > 0 && (
+              <p className="text-xs text-center font-medium text-green-700">
+                Estimativa de recebimento:{" "}
+                {formatCurrency(Math.max(0, parseFloat(withdrawalAmount) - platformFees.taxaFixa))}
+              </p>
             )}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setReceiptModalOpen(false)}
-            >
-              Fechar
+            <Button variant="outline" onClick={() => { setIsWithdrawModalOpen(false); setWithdrawalAmount(""); setPixKey(""); }} disabled={isWithdrawing}>
+              Cancelar
             </Button>
             <Button
-              onClick={() => receiptImageUrl && handleDownloadReceipt(receiptImageUrl)}
-              className="bg-green-600 hover:bg-green-700"
+              onClick={handleWithdrawalRequest}
+              disabled={hasPendingWithdraw || isWithdrawing || !withdrawalAmount || !pixKey}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Baixar
+              {isWithdrawing ? "Processando..." : "Confirmar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal para visualizar nota fiscal */}
+      {receiptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setReceiptModalOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">Nota Fiscal</h2>
+              <button onClick={() => setReceiptModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex justify-center items-center p-4">
+              {receiptImageUrl && (
+                <img
+                  src={receiptImageUrl}
+                  alt="Nota Fiscal"
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+                />
+              )}
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button
+                onClick={() => setReceiptModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => receiptImageUrl && handleDownloadReceipt(receiptImageUrl)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Baixar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
