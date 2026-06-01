@@ -6,6 +6,7 @@ services:
       - NODE_ENV=production
       - API_URL=https://api-bosque.jbmidia.com
       - HOSTNAME=0.0.0.0
+      - MACHINE_INTERNAL_TOKEN=91b324f6aa36368c536b4f1f9e75f7565b385737b1aa3a4adf07b8c7d99300c9
     networks:
       - externa
       - interna
