@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/global";
+import { DatePicker } from "@/components/ui/date-picker";
+import { format } from "date-fns";
 import {
   DollarSign,
   ArrowUpRight,
@@ -130,13 +132,13 @@ const formatCPFCNPJ = (value: string) => {
 
 const getStatusColor = (status: string) => {
   const statusColors: any = {
-    PENDING: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
-    COMPLETED: "bg-green-100 text-green-800 hover:bg-green-200",
-    FAILED: "bg-red-100 text-red-800 hover:bg-red-200",
-    PROCESSING: "bg-blue-100 text-blue-800 hover:bg-blue-200",
-    APPROVED: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+    PENDING: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 backdrop-blur-sm",
+    COMPLETED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 backdrop-blur-sm",
+    FAILED: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 backdrop-blur-sm",
+    PROCESSING: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 backdrop-blur-sm",
+    APPROVED: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 backdrop-blur-sm",
   };
-  return statusColors[status] || "bg-gray-100 text-gray-800 hover:bg-gray-200";
+  return statusColors[status] || "bg-black/[0.06] dark:bg-white/[0.06] text-black/50 dark:text-white/50 border border-black/10 dark:border-white/10 backdrop-blur-sm";
 };
 
 const getStatusText = (status: string) => {
@@ -145,7 +147,7 @@ const getStatusText = (status: string) => {
     COMPLETED: "Concluído",
     FAILED: "Recusado",
     PROCESSING: "Processando",
-    APPROVED: "Pendente",
+    APPROVED: "Aprovado",
   };
   return statusTexts[status] || status;
 };
@@ -409,7 +411,7 @@ const TransactionsPage = () => {
         },
       });
       const data: TransactionResponse = await response.json();
-      setTransactions(data.transactions);
+      setTransactions(data.transactions ?? []);
       setPaginationMeta(data.meta);
     } catch (error) {
       toast.error("Não foi possível carregar as transações.");
@@ -431,7 +433,7 @@ const TransactionsPage = () => {
         }
       );
       const data: WithdrawalResponse = await response.json();
-      setWithdrawals(data.withdrawals);
+      setWithdrawals(data.withdrawals ?? []);
       setWithdrawalsPaginationMeta(data.meta);
     } catch (error) {
       toast.error("Não foi possível carregar os saques.");
@@ -441,56 +443,44 @@ const TransactionsPage = () => {
   };
 
   const renderSummaryCards = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Saldo disponível
-              </p>
-              <h3 className="text-2xl font-bold">
-                {formatCurrency(financialSummary.availableBalance)}
-              </h3>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="h-5 w-5 text-green-600" />
             </div>
-            <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-green-600" />
+            <div>
+              <p className="text-xs font-medium text-gray-500">Saldo disponível</p>
+              <h3 className="text-xl font-bold">{formatCurrency(financialSummary.availableBalance)}</h3>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Saque em processo
-              </p>
-              <h3 className="text-2xl font-bold">
-                {formatCurrency(Number(financialSummary.netLockedBalance ?? financialSummary.pendingWithdraws))}
-              </h3>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+              <ArrowUpRight className="h-5 w-5 text-orange-500" />
             </div>
-            <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center">
-              <ArrowUpRight className="h-6 w-6 text-yellow-600" />
+            <div>
+              <p className="text-xs font-medium text-gray-500">Saque em processo</p>
+              <h3 className="text-xl font-bold">{formatCurrency(Number(financialSummary.netLockedBalance ?? financialSummary.pendingWithdraws))}</h3>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Saldo em processamento
-              </p>
-              <h3 className="text-2xl font-bold">
-                {formatCurrency(financialSummary.lockedBalance)}
-              </h3>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <ArrowDownLeft className="h-5 w-5 text-blue-500" />
             </div>
-            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <ArrowDownLeft className="h-6 w-6 text-blue-600" />
+            <div>
+              <p className="text-xs font-medium text-gray-500">Saldo em processamento</p>
+              <h3 className="text-xl font-bold">{formatCurrency(financialSummary.lockedBalance)}</h3>
             </div>
           </div>
         </CardContent>
@@ -499,10 +489,10 @@ const TransactionsPage = () => {
   );
 
   const renderFeeInfo = () => (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+    <div className="bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] rounded-lg p-4 mb-4">
       <div className="flex items-start gap-2">
-        <Info className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-        <div className="text-sm text-gray-600 space-y-1">
+        <Info className="h-4 w-4 text-black/40 dark:text-white/40 mt-0.5 flex-shrink-0" />
+        <div className="text-sm text-black/60 dark:text-white/60 space-y-1">
           <p>
             <span className="font-medium">Taxa de saque:</span>{" "}
             {formatCurrency(platformFees.taxaFixa)}
@@ -526,7 +516,7 @@ const TransactionsPage = () => {
     itemsPerPage: number,
     onPageChange: (page: number) => void
   ) => (
-    <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+    <div className="flex items-center justify-between border-t border-black/[0.06] dark:border-white/[0.06] bg-transparent px-4 py-3 sm:px-6">
       <div className="flex flex-1 justify-between sm:hidden">
         <Button
           onClick={() => onPageChange(currentPage - 1)}
@@ -547,7 +537,7 @@ const TransactionsPage = () => {
       </div>
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-black/70 dark:text-white/70">
             Mostrando{" "}
             <span className="font-medium">
               {(currentPage - 1) * itemsPerPage + 1}
@@ -737,7 +727,7 @@ const TransactionsPage = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleViewReceipt(withdrawal.receiptImage!)}
-                        className="flex items-center gap-1 px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-1 px-3 py-1 text-sm border border-black/20 dark:border-white/20 rounded-md hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -756,14 +746,7 @@ const TransactionsPage = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <div className="w-4 h-4 bg-gray-200 rounded flex items-center justify-center">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-sm">Não disponível</span>
-                    </div>
+                    <span className="text-sm text-gray-400">Não disponível</span>
                   )}
                 </TableCell>
               </TableRow>
@@ -785,22 +768,59 @@ const TransactionsPage = () => {
   return (
     <div className="p-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="w-full bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+        {activeTab === "withdrawals" && (
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Saque</h2>
+                <p className="text-sm text-gray-500">Gerencie seus saques e visualize seu saldo</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { fetchFinancialSummary(); fetchWithdrawals(withdrawalsPaginationMeta.currentPage); }}
+                className="flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Atualizar
+              </Button>
+              <Button
+                onClick={() => setIsWithdrawModalOpen(true)}
+                className="bg-black hover:bg-gray-800 text-white flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                Solicitar Saque
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] rounded-md p-4 mb-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-blue-800">
+              <p className="text-sm font-medium text-black/70 dark:text-white/70">
                 Atenção: As solicitações de saque são processadas em até 48 horas apenas em dias úteis.
               </p>
             </div>
           </div>
         </div>
 
-        {hasPendingWithdraw && (
+        {hasPendingWithdraw && activeTab === "withdrawals" && (
           <div className="w-full bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -817,122 +837,88 @@ const TransactionsPage = () => {
           </div>
         )}
 
-        <div className="flex justify-between items-center mb-6">
+        <div className="mb-4">
           <TabsList>
             <TabsTrigger value="transactions">Transações</TabsTrigger>
-            <TabsTrigger value="withdrawals">Histórico de saques</TabsTrigger>
+            <TabsTrigger value="withdrawals">Histórico de Saques</TabsTrigger>
           </TabsList>
-
-          <div className="flex gap-4">
-            {activeTab === "withdrawals" && (
-              <Button
-                onClick={handleSyncWithdrawals}
-                disabled={isSyncing}
-                variant="outline"
-              >
-                {isSyncing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2" />
-                    Sincronizando...
-                  </>
-                ) : (
-                  "Sincronizar Histórico"
-                )}
-              </Button>
-            )}
-            <Button
-              onClick={() => setIsWithdrawModalOpen(true)}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              Solicitar Saque
-            </Button>
-          </div>
         </div>
 
         <TabsContent value="transactions" className="space-y-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div>
-                  <Label htmlFor="startDate">Data Inicial</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="endDate">Data Final</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">Todos</SelectItem>
-                      <SelectItem value="PENDING">Pendente</SelectItem>
-                      <SelectItem value="COMPLETED">Concluído</SelectItem>
-                      <SelectItem value="FAILED">Falhou</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="status">Tipo</Label>
-                  <Select value={description} onValueChange={setDescription}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">Todos</SelectItem>
-                      <SelectItem value="ibb_social">IBB social</SelectItem>
-                      <SelectItem value="dizimo">Dizimo</SelectItem>
-                      <SelectItem value="oferta">Oferta</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    onClick={() => fetchTransactions(1)}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Filtrar
-                  </Button>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    onClick={handleExportExcel}
-                    disabled={isExporting}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {isExporting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                        Exportando...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-4 w-4" />
-                        Exportar Excel
-                      </>
-                    )}
-                  </Button>
-                </div>
+          <div className="border border-black/[0.08] dark:border-white/[0.08] rounded-lg p-4 bg-transparent">
+            <div className="flex items-end gap-3">
+              <div className="flex-1 space-y-1.5">
+                <Label>Data Inicial</Label>
+                <DatePicker
+                  value={startDate ? new Date(`${startDate}T12:00:00`) : undefined}
+                  onChange={(date) => setStartDate(date ? format(date, "yyyy-MM-dd") : "")}
+                  placeholder="dd/mm/aaaa"
+                />
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex-1 space-y-1.5">
+                <Label>Data Final</Label>
+                <DatePicker
+                  value={endDate ? new Date(`${endDate}T12:00:00`) : undefined}
+                  onChange={(date) => setEndDate(date ? format(date, "yyyy-MM-dd") : "")}
+                  placeholder="dd/mm/aaaa"
+                />
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="status">Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Todos</SelectItem>
+                    <SelectItem value="PENDING">Pendente</SelectItem>
+                    <SelectItem value="COMPLETED">Concluído</SelectItem>
+                    <SelectItem value="FAILED">Falhou</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="tipo">Tipo</Label>
+                <Select value={description} onValueChange={setDescription}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Todos</SelectItem>
+                    <SelectItem value="ibb_social">IBB social</SelectItem>
+                    <SelectItem value="dizimo">Dizimo</SelectItem>
+                    <SelectItem value="oferta">Oferta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end gap-2 pb-0">
+                <Button
+                  onClick={() => fetchTransactions(1)}
+                  variant="outline"
+                >
+                  Filtrar
+                </Button>
+                <Button
+                  onClick={handleExportExcel}
+                  disabled={isExporting}
+                  className="bg-black hover:bg-gray-800 text-white"
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Exportando...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      Exportar
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
 
-          {renderSummaryCards()}
           {isLoading ? (
             <div className="flex justify-center items-center h-40">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -942,70 +928,46 @@ const TransactionsPage = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="withdrawals" className="space-y-6">
+        <TabsContent value="withdrawals" className="space-y-4">
           {renderSummaryCards()}
           {renderFeeInfo()}
 
-          {withdrawals.length > 0 && (
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Status do Saque Atual</h3>
-                {withdrawals.slice(0, 1).map((withdrawal) => (
-                  <div key={withdrawal.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className={`h-3 w-3 rounded-full ${withdrawal.status === 'PENDING' || withdrawal.status === 'APPROVED' ? 'bg-yellow-500' :
-                          withdrawal.status === 'COMPLETED' ? 'bg-green-500' :
-                            withdrawal.status === 'FAILED' ? 'bg-red-500' : 'bg-gray-500'
-                        }`}></div>
-                      <div>
-                        <p className="font-medium">
-                          Saque de {formatCurrency(withdrawal.amount)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Solicitado em {new Date(withdrawal.createdAt).toLocaleDateString("pt-BR")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(withdrawal.status)}>
-                        {getStatusText(withdrawal.status)}
-                      </Badge>
-                      {withdrawal.status === "FAILED" && withdrawal.rejectionReason && (
-                        <div className="relative group">
-                          <Info className="h-4 w-4 text-red-500 cursor-help" />
-                          <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
-                            <div className="absolute bottom-full right-4 mb-0">
-                              <div className="border-4 border-transparent border-b-gray-900"></div>
-                            </div>
-                            <div className="font-semibold mb-1">Razão da Rejeição:</div>
-                            <div>{withdrawal.rejectionReason}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-            </div>
-          ) : (
-            renderWithdrawalsTable()
-          )}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold">Histórico de Saques</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSyncWithdrawals}
+                  disabled={isSyncing}
+                  className="flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {isSyncing ? "Sincronizando..." : "Sincronizar"}
+                </Button>
+              </div>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600" />
+                </div>
+              ) : (
+                renderWithdrawalsTable()
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
       {/* Modal de Saque */}
       <Dialog open={isWithdrawModalOpen} onOpenChange={setIsWithdrawModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Solicitar Saque</DialogTitle>
+            <DialogTitle className="text-base font-semibold">Solicitar Saque</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="flex flex-col gap-4 py-2">
             {hasPendingWithdraw && (
               <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md">
                 <p className="text-yellow-700 text-sm text-center font-medium">
@@ -1013,54 +975,64 @@ const TransactionsPage = () => {
                 </p>
               </div>
             )}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="wd-amount" className="text-right">Valor</Label>
-              <div className="col-span-3 relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">R$</span>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="wd-amount">Valor</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-gray-500 text-sm">R$</span>
                 <Input
                   id="wd-amount"
                   type="text"
                   value={withdrawalAmount}
                   onChange={handleAmountChange}
                   disabled={hasPendingWithdraw}
-                  className="pl-8"
+                  className="pl-9"
                   placeholder="0,00"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Disponível: {formatCurrency(financialSummary?.availableBalance ?? 0)}
-                </p>
               </div>
+              <p className="text-xs text-gray-500">
+                Saldo disponível: <span className="font-medium">{formatCurrency(financialSummary?.availableBalance ?? 0)}</span>
+              </p>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="wd-pix" className="text-right">PIX</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="wd-pix">Chave PIX (CPF/CNPJ)</Label>
               <Input
                 id="wd-pix"
                 type="text"
                 value={pixKey}
                 onChange={handlePixKeyChange}
                 disabled={hasPendingWithdraw}
-                className="col-span-3"
-                placeholder="CPF ou CNPJ"
+                placeholder="Digite seu CPF ou CNPJ"
               />
             </div>
-            <p className="text-xs text-gray-500 text-center">
-              Valor mínimo: {formatCurrency(platformFees.saqueMin)} · Taxa: {formatCurrency(platformFees.taxaFixa)}
-            </p>
-            {parseFloat(withdrawalAmount) > 0 && (
-              <p className="text-xs text-center font-medium text-green-700">
-                Estimativa de recebimento:{" "}
-                {formatCurrency(Math.max(0, parseFloat(withdrawalAmount) - platformFees.taxaFixa))}
-              </p>
-            )}
+            <div className="rounded-lg bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.07] dark:border-white/[0.07] p-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-black/50 dark:text-white/50">Taxa por saque</span>
+                <span className="text-xs font-medium text-black dark:text-white">
+                  {platformFees.taxaPercent > 0
+                    ? `${formatCurrency(platformFees.taxaFixa)} + ${(platformFees.taxaPercent * 100).toFixed(2)}%`
+                    : formatCurrency(platformFees.taxaFixa)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-black/50 dark:text-white/50">Valor mínimo</span>
+                <span className="text-xs font-medium text-black dark:text-white">{formatCurrency(platformFees.saqueMin)}</span>
+              </div>
+              {withdrawalAmount && parseFloat(withdrawalAmount) > 0 && (
+                <div className="flex items-center justify-between pt-1.5 border-t border-black/[0.06] dark:border-white/[0.06]">
+                  <span className="text-xs font-medium text-black/70 dark:text-white/70">Você receberá</span>
+                  <span className="text-sm font-semibold text-black dark:text-white">{formatCurrency(Math.max(0, parseFloat(withdrawalAmount) - platformFees.taxaFixa))}</span>
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => { setIsWithdrawModalOpen(false); setWithdrawalAmount(""); setPixKey(""); }} disabled={isWithdrawing}>
               Cancelar
             </Button>
             <Button
               onClick={handleWithdrawalRequest}
               disabled={hasPendingWithdraw || isWithdrawing || !withdrawalAmount || !pixKey}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-gray-700 hover:bg-gray-800 text-white"
             >
               {isWithdrawing ? "Processando..." : "Confirmar"}
             </Button>
@@ -1071,7 +1043,7 @@ const TransactionsPage = () => {
       {/* Modal para visualizar nota fiscal */}
       {receiptModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setReceiptModalOpen(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-black/90 rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold">Nota Fiscal</h2>
               <button onClick={() => setReceiptModalOpen(false)} className="text-gray-400 hover:text-gray-600">
@@ -1092,7 +1064,7 @@ const TransactionsPage = () => {
             <div className="flex justify-end gap-2 p-4 border-t">
               <button
                 onClick={() => setReceiptModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-black/20 dark:border-white/20 rounded-md hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors text-black dark:text-white"
               >
                 Fechar
               </button>

@@ -82,7 +82,7 @@ export default function CategoriesPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white/60 dark:bg-white/[0.04] rounded-xl border border-black/[0.08] dark:border-white/[0.08]">
           <Table>
             <TableHeader>
               <TableRow>

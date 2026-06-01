@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import {
-  Menu,
   X,
   FileText,
   Video,
@@ -10,9 +9,13 @@ import {
   CalendarCheck,
   Gamepad,
   User2,
+  Home,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
 } from "lucide-react";
 import Header from "./header";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { getCookie } from "@/hooks/set-cookie";
 
 interface LayoutProps {
@@ -20,24 +23,21 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [currentSection, setCurrentSection] = useState("/admin");
+  const pathname = usePathname();
   const { push } = useRouter();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [roles, setRoles] = useState("");
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
+
   useEffect(() => {
-    getCookie("roles").then((roles) => {
-      console.log(roles);
-      setRoles(roles?.value ?? "");
-    });
+    getCookie("roles").then((r) => setRoles(r?.value ?? ""));
   }, []);
+
   const menuItems = [
     {
       id: "/admin",
-      label: "Pagina Inicial",
-      icon: FileText,
+      label: "Página Inicial",
+      icon: Home,
       roles: "admin::pray::video::study::schedule::donate::quiz",
     },
     {
@@ -84,65 +84,98 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     },
   ];
 
+  const filtered = menuItems.filter((item) =>
+    roles.split(":").some((role) => item.roles.includes(role))
+  );
+
+  const sidebarWidth = collapsed ? "w-16" : "w-64";
+  const mainMargin = collapsed ? "lg:ml-16" : "lg:ml-64";
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Overlay */}
-      {isSidebarOpen && (
+    <div className="min-h-screen bg-background">
+      {/* Mobile overlay */}
+      {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={toggleSidebar}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-screen bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 w-64`}
+        className={`fixed top-0 left-0 h-screen z-50 ${sidebarWidth} transform transition-all duration-300 ease-in-out
+          bg-white/70 dark:bg-black/70 backdrop-blur-2xl
+          border-r border-black/[0.07] dark:border-white/[0.07]
+          ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0`}
       >
-        <div className="flex items-center justify-between h-16 border-b px-4">
-          <h1 className="text-xl font-bold text-blue-600">Igreja do Bosque</h1>
+        {/* Brand row */}
+        <div className="flex items-center h-16 px-3 border-b border-black/[0.07] dark:border-white/[0.07]">
+          {!collapsed && (
+            <span className="flex-1 text-sm font-semibold text-black dark:text-white tracking-tight truncate pl-1">
+              Igreja do Bosque
+            </span>
+          )}
+          {collapsed && <div className="flex-1" />}
+
+          {/* Desktop collapse toggle */}
           <button
-            className="lg:hidden text-gray-500 hover:text-gray-700"
-            onClick={toggleSidebar}
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex h-7 w-7 items-center justify-center rounded-lg
+              text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white
+              hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors shrink-0"
           >
-            <X className="w-6 h-6" />
+            {collapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </button>
+
+          {/* Mobile close */}
+          <button
+            className="lg:hidden flex h-7 w-7 items-center justify-center rounded-lg
+              text-black/40 dark:text-white/40 transition-colors"
+            onClick={() => setIsMobileOpen(false)}
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <nav className="p-4">
-          <ul className="space-y-2">
-            {menuItems
-              .filter((item) =>
-                roles.split(":").some((role) => item.roles.includes(role))
-              )
-              .map((item) => (
+        {/* Nav */}
+        <nav className="p-2">
+          <ul className="space-y-0.5">
+            {filtered.map((item) => {
+              const isActive = pathname === item.id;
+              return (
                 <li key={item.id}>
                   <button
                     onClick={() => {
                       push(item.id);
-                      setCurrentSection(item.id);
-                      setIsSidebarOpen(false);
+                      setIsMobileOpen(false);
                     }}
-                    className={`flex items-center w-full p-3 rounded-lg ${
-                      currentSection === item.id
-                        ? "bg-blue-50 text-blue-600"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
+                    title={collapsed ? item.label : undefined}
+                    className={`flex items-center w-full rounded-lg text-sm font-medium transition-all duration-150
+                      ${collapsed ? "px-0 justify-center h-10" : "px-3 py-2.5"}
+                      ${isActive
+                        ? "bg-black text-white dark:bg-white dark:text-black shadow-sm"
+                        : "text-black/60 dark:text-white/60 hover:bg-black/[0.06] dark:hover:bg-white/[0.06] hover:text-black dark:hover:text-white"
+                      }`}
                   >
-                    <item.icon className="w-5 h-5 mr-3" />
-                    <span>{item.label}</span>
+                    <item.icon className={`w-4 h-4 shrink-0 ${!collapsed ? "mr-3" : ""}`} />
+                    {!collapsed && <span>{item.label}</span>}
                   </button>
                 </li>
-              ))}
+              );
+            })}
           </ul>
         </nav>
       </aside>
 
-      {/* Main Content */}
-      <div className="lg:ml-64">
-        <Header toggleSidebar={toggleSidebar} />
-        <main className="p-4 lg:p-6">{children}</main>
+      {/* Main content */}
+      <div className={`${mainMargin} flex flex-col min-h-screen transition-all duration-300`}>
+        <Header toggleSidebar={() => setIsMobileOpen(!isMobileOpen)} />
+        <main className="flex-1 p-4 lg:p-6 mt-16">{children}</main>
       </div>
     </div>
   );

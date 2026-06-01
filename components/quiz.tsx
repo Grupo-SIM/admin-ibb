@@ -429,12 +429,12 @@ const QuizPage = () => {
                       </h3>
                       <div className="space-y-2">
                         {quiz.options.map((option, index) => (
-                          <p key={index} className="text-gray-600">
+                          <p key={index} className="text-black/70 dark:text-white/70">
                             {index + 1}. {option}
                           </p>
                         ))}
                       </div>
-                      <p className="mt-4 text-sm text-gray-500">
+                      <p className="mt-4 text-sm text-black/50 dark:text-white/50">
                         Referência: {quiz.bibleReference}
                       </p>
                     </div>

@@ -259,7 +259,7 @@ const SchedulePage = () => {
 
       {isLoading ? (
         <div className="flex justify-center items-center h-40">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-black/20 dark:border-white/20 border-t-black dark:border-t-white" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -269,12 +269,12 @@ const SchedulePage = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-4">
-                      <Calendar className="w-5 h-5 text-blue-600" />
+                      <Calendar className="w-5 h-5 text-black/50 dark:text-white/50" />
                       <h3 className="text-lg font-semibold">{schedule.date}</h3>
                     </div>
                     <ul className="space-y-2">
                       {schedule.list.map((event, index) => (
-                        <li key={index} className="text-gray-700">
+                        <li key={index} className="text-black/70 dark:text-white/70">
                           • {event}
                         </li>
                       ))}

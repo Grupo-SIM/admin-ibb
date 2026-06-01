@@ -22,6 +22,19 @@ import { Badge } from "@/components/ui/global";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const getRoleColor = (role: string) => {
+  const colors: Record<string, string> = {
+    admin:    "bg-purple-500/15 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30",
+    pray:     "bg-blue-500/15 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30",
+    post:     "bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30",
+    study:    "bg-amber-500/15 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30",
+    schedule: "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30",
+    donate:   "bg-pink-500/15 dark:bg-pink-500/20 text-pink-700 dark:text-pink-300 border border-pink-500/30",
+    quiz:     "bg-orange-500/15 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/30",
+  };
+  return colors[role] ?? "bg-black/[0.06] dark:bg-white/[0.06] text-black/50 dark:text-white/50 border border-black/10 dark:border-white/10";
+};
+
 const getTranslation = (role: string) => {
   switch (role) {
     case "admin":
@@ -202,7 +215,7 @@ const UserModal = ({
               )}
               <div className="flex flex-wrap gap-2 mt-2">
                 {roles.map((role) => (
-                  <Badge key={role} variant="secondary" className="p-1">
+                  <Badge key={role} className={`p-1 ${getRoleColor(role)}`}>
                     {getTranslation(role)}
                     <Button
                       type="button"
@@ -388,7 +401,7 @@ const UserPage = () => {
                     <p className="text-sm text-gray-500 mb-3">{user.email}</p>
                     <div className="flex flex-wrap gap-2">
                       {user.roles.map((role) => (
-                        <Badge key={role} variant="secondary">
+                        <Badge key={role} className={getRoleColor(role)}>
                           {getTranslation(role)}
                         </Badge>
                       ))}

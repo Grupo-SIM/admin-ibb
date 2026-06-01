@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const MACHINE_API_URL = 'https://simpay-back.simintermediacoes.com';
-const INTERNAL_TOKEN = process.env.MACHINE_INTERNAL_TOKEN ?? '';
+const INTERNAL_TOKEN = process.env.MACHINE_INTERNAL_TOKEN ?? process.env.API_MACHINE_INTERNAL_TOKEN ?? '';
 
 export async function GET(
   request: NextRequest,

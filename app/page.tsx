@@ -1,32 +1,30 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/global";
 import { Button } from "@/components/ui/global";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/global";
-import { toast } from 'react-toastify';;
-import { Lock } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
 import { setCookie } from "@/hooks/set-cookie";
+import { toast } from "react-toastify";
 
 const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [mail, setMail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const router = useRouter();
   const API_URL = process.env.API_URL || "https://api-bosque.jbmidia.com";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
+    setSuccess(false);
 
     try {
-      // Here you would integrate with your actual authentication API
       const response = await fetch(API_URL + "/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -36,86 +34,136 @@ const LoginPage = () => {
       if (!response.ok) {
         throw new Error("Login failed");
       }
+
       const res = await response.json();
       await setCookie("roles", res.user.roles, 1);
       await setCookie("token", res.token, 1);
-    
-      // On successful login
-      router.push("/admin");
+
+      setSuccess(true);
       toast.success("Login realizado com sucesso!");
-    } catch (error) {
-      toast.error("Senha incorreta. Tente novamente.");;
+
+      setTimeout(() => {
+        router.push("/admin");
+      }, 1500);
+    } catch {
+      setError("Senha incorreta. Tente novamente.");
+      toast.error("Senha incorreta. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Bem-vindo</CardTitle>
-          <CardDescription>
-            Digite a senha para acessar o sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="mail">Email</Label>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gray-400">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/29256.jpg"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover object-center z-0"
+      />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-0" />
+
+      <div className="w-full max-w-[1200px] min-h-[700px] bg-white rounded-3xl overflow-hidden relative z-10 flex shadow-2xl mx-4" style={{minHeight: 700}}>
+
+        {/* Formulário */}
+        <div className="w-full md:w-1/2 p-8 md:p-16 lg:p-24 flex flex-col justify-center bg-white">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold text-black mb-2">Login</h1>
+            <p className="text-gray-500 text-sm">Entre com seu email e senha para acessar</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="mail" className="text-black font-medium">Email</Label>
+              <Input
+                id="mail"
+                type="email"
+                placeholder="seu@email.com"
+                value={mail}
+                onChange={(e) => setMail(e.target.value)}
+                className="bg-gray-50 border border-gray-300 text-black placeholder:text-gray-500 focus:border-black focus:ring-black shadow-sm"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-black font-medium">Senha</Label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
                 <Input
-                  id="mail"
-                  type="mail"
-                  placeholder="Digite seu email"
-                  value={mail}
-                  onChange={(e) => setMail(e.target.value)}
-                  className="pl-10"
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-gray-50 border border-gray-300 text-black placeholder:text-gray-500 focus:border-black focus:ring-black shadow-sm pr-10"
                   required
-                  autoFocus
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Digite sua senha"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  required
-                  autoFocus
-                />
+            {error && (
+              <div className="flex items-center space-x-2 p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
               </div>
-            </div>
+            )}
+
+            {success && (
+              <div className="flex items-center space-x-2 p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>Login realizado com sucesso! Redirecionando...</span>
+              </div>
+            )}
 
             <Button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700"
-              disabled={isLoading}
+              className="w-full bg-black text-white hover:bg-gray-900 rounded-xl h-11 cursor-pointer font-medium"
+              disabled={isLoading || success}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                  Entrando...
+              {success ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Logado!</span>
+                </div>
+              ) : isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  <span>Entrando...</span>
                 </div>
               ) : (
                 "Entrar"
               )}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Lado Direito: Imagem */}
+        <div className="hidden md:flex md:w-1/2 p-4 bg-white">
+          <div className="w-full rounded-2xl relative overflow-hidden flex items-end p-10" style={{minHeight: 668}}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/29256.jpg"
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            <div className="relative z-10">
+              <p className="text-white/90 text-2xl font-light leading-tight">Bem-vindo ao</p>
+              <p className="text-white text-3xl font-bold leading-tight">Painel IBB</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 };

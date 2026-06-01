@@ -1,54 +1,54 @@
+"use client";
 import React from "react";
-import { Bell, Search, Menu, User, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { clearCookie } from "@/hooks/set-cookie";
-import { useRouter } from "next/navigation";
-import { toast } from 'react-toastify';
+import { toast } from "react-toastify";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface HeaderProps {
   toggleSidebar: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
-  const router = useRouter();
-
   const handleLogout = async () => {
     try {
       await clearCookie();
-      
-      toast.success('Logout realizado com sucesso!');
-      
-      // Redireciona para a página de login
+      toast.success("Logout realizado com sucesso!");
       setTimeout(() => {
-        router.push("/login");
+        window.location.reload();
       }, 1000);
-    } catch (error) {
-      toast.error('Erro ao realizar logout');
+    } catch {
+      toast.error("Erro ao realizar logout");
     }
   };
 
   return (
-    <header className="h-16 bg-white shadow-sm">
+    <header className="fixed top-0 left-0 right-0 h-16 z-30
+      bg-white/60 dark:bg-black/60 backdrop-blur-xl
+      border-b border-black/[0.06] dark:border-white/[0.06]">
       <div className="flex items-center justify-between h-full px-4 lg:px-6">
-        <div className="flex items-center">
+        <button
+          onClick={toggleSidebar}
+          className="lg:hidden h-8 w-8 flex items-center justify-center rounded-lg
+            text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white
+            hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
           <button
-            onClick={toggleSidebar}
-            className="lg:hidden"
+            onClick={handleLogout}
+            className="h-8 w-8 flex items-center justify-center rounded-lg
+              text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white
+              hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors"
+            aria-label="Sair"
           >
-            <Menu className="w-6 h-6 text-gray-500" />
+            <LogOut className="w-4 h-4" />
           </button>
-
-        </div>
-
-        <div className="flex items-center space-x-4">
-
-          <div className="flex items-center">
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <LogOut 
-                onClick={handleLogout} 
-                className="w-5 h-5 text-gray-600 cursor-pointer hover:text-gray-800 transition-colors"
-              />
-            </div>
-          </div>
         </div>
       </div>
     </header>

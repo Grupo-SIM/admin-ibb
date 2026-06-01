@@ -1,18 +1,13 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import {
-  Bell,
-  Search,
-  Menu,
-  User,
-  Home,
-  FileText,
-  ChevronRight,
   Plus,
   Trash2,
   Edit,
   Eye,
   X,
+  Filter,
+  Calendar,
 } from "lucide-react";
 import {
   Card,
@@ -21,6 +16,7 @@ import {
   CardContent,
   CardTitle,
   CardHeader,
+  Label,
 } from "@/components/ui/global";
 import {
   Dialog,
@@ -44,6 +40,7 @@ import {
   PrayerRequest,
   PrayerStatistics,
 } from "../services/prayer";
+import { DatePicker } from "@/components/ui/date-picker";
 
 import {
   Form,
@@ -400,6 +397,21 @@ const AdminDashboard = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+
+  const filteredRequests = prayerRequests.filter((r) => {
+    if (statusFilter && r.status !== statusFilter) return false;
+    const d = new Date(r.createdAt);
+    if (startDate && d < startDate) return false;
+    if (endDate && d > new Date(endDate.getTime() + 86399999)) return false;
+    return true;
+  });
+
+  const hasFilters = !!statusFilter || !!startDate || !!endDate;
+  const clearFilters = () => { setStatusFilter(""); setStartDate(undefined); setEndDate(undefined); };
+
   const openCreateModal = () => {
     setCreateModalOpen(true);
   };
@@ -469,7 +481,7 @@ const AdminDashboard = () => {
 
   const handleSelectAll = (checked: boolean | "indeterminate") => {
     if (checked === true) {
-      setSelectedIds(new Set(prayerRequests.map((req) => req.id)));
+      setSelectedIds(new Set(filteredRequests.map((req) => req.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -514,7 +526,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const isAllSelected = prayerRequests.length > 0 && selectedIds.size === prayerRequests.length;
+  const isAllSelected = filteredRequests.length > 0 && selectedIds.size === filteredRequests.length;
 
   const openViewModal = (request: PrayerRequest) => {
     setSelectedRequest(request);
@@ -528,10 +540,10 @@ const AdminDashboard = () => {
 
   const getStatusColor = (status: PrayerRequestStatus): string => {
     const colors: Record<PrayerRequestStatus, string> = {
-      [PrayerRequestStatus.PENDING]: "bg-yellow-100 text-yellow-800",
-      [PrayerRequestStatus.IN_PRAYER]: "bg-blue-100 text-blue-800",
-      [PrayerRequestStatus.COMPLETED]: "bg-green-100 text-green-800",
-      [PrayerRequestStatus.ARCHIVED]: "bg-gray-100 text-gray-800",
+      [PrayerRequestStatus.PENDING]: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 backdrop-blur-sm",
+      [PrayerRequestStatus.IN_PRAYER]: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 backdrop-blur-sm",
+      [PrayerRequestStatus.COMPLETED]: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 backdrop-blur-sm",
+      [PrayerRequestStatus.ARCHIVED]: "bg-black/[0.06] dark:bg-white/[0.06] text-black/50 dark:text-white/50 border border-black/10 dark:border-white/10 backdrop-blur-sm",
     };
 
     return colors[status];
@@ -603,10 +615,57 @@ const AdminDashboard = () => {
     </div>
   );
 
+  const renderFilters = () => (
+    <Card className="mb-6">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-black/40 dark:text-white/40" />
+          <CardTitle className="text-sm font-medium">Filtros</CardTitle>
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="ml-auto flex items-center gap-1 text-xs text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Limpar
+            </button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select value={statusFilter || "ALL"} onValueChange={(v) => setStatusFilter(v === "ALL" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos os status</SelectItem>
+                <SelectItem value={PrayerRequestStatus.PENDING}>Pendente</SelectItem>
+                <SelectItem value={PrayerRequestStatus.IN_PRAYER}>Em Oração</SelectItem>
+                <SelectItem value={PrayerRequestStatus.COMPLETED}>Completado</SelectItem>
+                <SelectItem value={PrayerRequestStatus.ARCHIVED}>Arquivado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Data Inicial</Label>
+            <DatePicker value={startDate} onChange={setStartDate} placeholder="Data inicial" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Data Final</Label>
+            <DatePicker value={endDate} onChange={setEndDate} placeholder="Data final" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   const renderPrayerRequests = () => (
     <Card>
       <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
-        <CardTitle>Pedidos de Oração</CardTitle>
+        <CardTitle>Pedidos de Oração ({filteredRequests.length})</CardTitle>
         <div className="flex gap-2 w-full sm:w-auto">
           {selectedIds.size > 0 && (
             <Button
@@ -622,7 +681,7 @@ const AdminDashboard = () => {
           <Button
             size="sm"
             onClick={()=> setCreateModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+            className="bg-black hover:bg-gray-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 w-full sm:w-auto"
           >
             <Plus className="w-4 h-4 mr-2" />
             Novo Pedido
@@ -633,7 +692,7 @@ const AdminDashboard = () => {
         <div className="overflow-x-auto -mx-4 sm:mx-0">
           <div className="inline-block min-w-full align-middle">
             <table className="min-w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-black/[0.03] dark:bg-white/[0.03]">
                 <tr>
                   <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">
                     <Checkbox
@@ -658,8 +717,8 @@ const AdminDashboard = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {prayerRequests.map((request) => (
+              <tbody className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+                {filteredRequests.map((request) => (
                   <tr key={request.id}>
                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                       <Checkbox
@@ -677,7 +736,7 @@ const AdminDashboard = () => {
                     </td>
                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                        className={`px-2 py-0.5 text-xs font-medium rounded-md ${getStatusColor(
                           request.status
                         )}`}
                       >
@@ -723,6 +782,7 @@ const AdminDashboard = () => {
   return (
     <>
       {renderPrayerStats()}
+      {renderFilters()}
       {renderPrayerRequests()}
       <ViewModal
         request={selectedRequest}

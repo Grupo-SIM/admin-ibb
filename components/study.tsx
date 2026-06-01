@@ -12,6 +12,13 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Plus, BookOpen, Pencil, Trash2, FolderPlus, Image } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { imageService } from '@/services/image';
 
@@ -253,19 +260,18 @@ const StudyModal = ({ isOpen, onClose, onSubmit, categories, initialData, mode }
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <Label htmlFor="category">Categoria</Label>
-            <select
-              id="category"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
-              required
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <Select value={categoryId} onValueChange={setCategoryId} required>
+              <SelectTrigger id="category" className="w-full">
+                <SelectValue placeholder="Selecione uma categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label htmlFor="title">Título</Label>
@@ -598,7 +604,7 @@ const CategorizedStudiesPage = () => {
                   </div>
                   <h3 className="font-semibold text-lg mb-1">{category.name}</h3>
                   {category.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p className="text-sm text-black/60 dark:text-white/60 line-clamp-2">
                       {category.description}
                     </p>
                   )}
@@ -638,10 +644,10 @@ const CategorizedStudiesPage = () => {
                           <h3 className="text-lg font-semibold mb-2">
                             {study.title}
                           </h3>
-                          <p className="text-sm text-gray-600 mb-4">
+                          <p className="text-sm text-black/60 dark:text-white/60 mb-4">
                             {new Date(study.postDate).toLocaleDateString()}
                           </p>
-                          <p className="text-gray-700 line-clamp-3 whitespace-pre-wrap">
+                          <p className="text-black/70 dark:text-white/70 line-clamp-3 whitespace-pre-wrap">
                             {study.content}
                           </p>
                         </div>
