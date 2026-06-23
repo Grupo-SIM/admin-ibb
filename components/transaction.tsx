@@ -466,7 +466,7 @@ const TransactionsPage = () => {
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">Saque em processo</p>
-              <h3 className="text-xl font-bold">{formatCurrency(Number(financialSummary.netLockedBalance ?? financialSummary.pendingWithdraws))}</h3>
+              <h3 className="text-xl font-bold">{formatCurrency(financialSummary.pendingWithdraws)}</h3>
             </div>
           </div>
         </CardContent>
@@ -480,7 +480,7 @@ const TransactionsPage = () => {
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">Saldo em processamento</p>
-              <h3 className="text-xl font-bold">{formatCurrency(financialSummary.lockedBalance)}</h3>
+              <h3 className="text-xl font-bold">{formatCurrency(Number(financialSummary.netLockedBalance ?? financialSummary.lockedBalance))}</h3>
             </div>
           </div>
         </CardContent>
