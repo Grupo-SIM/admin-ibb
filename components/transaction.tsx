@@ -135,8 +135,10 @@ const getStatusColor = (status: string) => {
     PENDING: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 backdrop-blur-sm",
     COMPLETED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 backdrop-blur-sm",
     FAILED: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 backdrop-blur-sm",
+    REJECTED: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 backdrop-blur-sm",
     PROCESSING: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 backdrop-blur-sm",
-    APPROVED: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 backdrop-blur-sm",
+    // APPROVED = pago/concluído → mesma cor (verde) do COMPLETED.
+    APPROVED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 backdrop-blur-sm",
   };
   return statusColors[status] || "bg-black/[0.06] dark:bg-white/[0.06] text-black/50 dark:text-white/50 border border-black/10 dark:border-white/10 backdrop-blur-sm";
 };
@@ -146,8 +148,10 @@ const getStatusText = (status: string) => {
     PENDING: "Pendente",
     COMPLETED: "Concluído",
     FAILED: "Recusado",
+    REJECTED: "Recusado",
     PROCESSING: "Processando",
-    APPROVED: "Aprovado",
+    // APPROVED é o estado final de saque pago neste sistema — exibe como "Concluído".
+    APPROVED: "Concluído",
   };
   return statusTexts[status] || status;
 };
@@ -207,9 +211,9 @@ const TransactionsPage = () => {
   const [pixKey, setPixKey] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  const hasPendingWithdraw = withdrawals.some(w =>
-    w.status === 'PENDING' || w.status === 'APPROVED'
-  );
+  // Só PENDING (aguardando aprovação) bloqueia um novo saque. APPROVED já foi
+  // aprovado/pago (saldo debitado + comprovante) — equivale a concluído e não trava.
+  const hasPendingWithdraw = withdrawals.some(w => w.status === 'PENDING');
 
   useEffect(() => {
     if (activeTab === "withdrawals") {
