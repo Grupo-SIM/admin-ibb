@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   Gamepad,
   User2,
+  Wallet,
   Home,
   ChevronLeft,
   ChevronRight,
@@ -69,6 +70,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: "Ofertas",
       icon: CircleDollarSign,
       roles: "donate::admin",
+    },
+    {
+      id: "/admin/withdraw",
+      label: "Saque",
+      icon: Wallet,
+      roles: "withdraw::admin",
     },
     {
       id: "/admin/quiz",

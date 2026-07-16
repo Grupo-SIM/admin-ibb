@@ -57,7 +57,7 @@ const LoginPage = () => {
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gray-400">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/29256.jpg"
+        src="/01.png"
         alt=""
         className="absolute inset-0 w-full h-full object-cover object-center z-0"
       />
@@ -126,7 +126,7 @@ const LoginPage = () => {
 
             <Button
               type="submit"
-              className="w-full bg-black text-white hover:bg-gray-900 rounded-xl h-11 cursor-pointer font-medium"
+              className="w-full bg-black text-white hover:bg-gray-900 dark:bg-black dark:text-white dark:hover:bg-gray-900 rounded-xl h-11 cursor-pointer font-medium"
               disabled={isLoading || success}
             >
               {success ? (
@@ -151,11 +151,11 @@ const LoginPage = () => {
           <div className="w-full rounded-2xl relative overflow-hidden flex items-end p-10" style={{minHeight: 668}}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/29256.jpg"
+              src="/login.png"
               alt=""
               className="absolute inset-0 w-full h-full object-cover object-center"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
             <div className="relative z-10">
               <p className="text-white/90 text-2xl font-light leading-tight">Bem-vindo ao</p>
               <p className="text-white text-3xl font-bold leading-tight">Painel IBB</p>
