@@ -530,9 +530,10 @@ const WithdrawPage = () => {
                             <tbody>
                                 {withdrawals.map((withdrawal, i) => {
                                     const statusMap: Record<string, { label: string; cls: string }> = {
+                                        // Saque aprovado é tratado/exibido como Concluído (verde), igual ao COMPLETED.
                                         COMPLETED: { label: "Concluído",            cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" },
+                                        APPROVED:  { label: "Concluído",            cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" },
                                         PENDING:   { label: "Aguardando Aprovação", cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" },
-                                        APPROVED:  { label: "Aprovado",             cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20" },
                                         FAILED:    { label: "Falhou",               cls: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20" },
                                         REJECTED:  { label: "Recusado",             cls: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20" },
                                     };
