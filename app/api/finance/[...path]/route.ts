@@ -15,7 +15,6 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
   for (const [name, value] of query) {
     if (!allowed.includes(name) || query.getAll(name).length !== 1 || value.length > 200 || (['page', 'limit'].includes(name) && (!/^[1-9]\d*$/.test(value) || Number(value) > (name === 'limit' ? 100 : 100000)))) return NextResponse.json({ message: 'Filtro inválido' }, { status: 400, headers });
   }
-  if (request.method === 'POST' && resource === 'withdrawals' && process.env.FINANCE_WITHDRAWALS_ENABLED !== 'true') return NextResponse.json({ message: 'Saques bloqueados até aprovação da reconciliação financeira.' }, { status: 403, headers });
   let body: string | undefined;
   if (request.method === 'POST') {
     if (request.headers.get('origin') !== request.nextUrl.origin || request.headers.get('sec-fetch-site') === 'cross-site') return NextResponse.json({ message: 'Origem inválida' }, { status: 403, headers });
@@ -43,7 +42,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       return new NextResponse(response.body, { headers: { ...headers, 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'" } });
     }
     const data = await response.json();
-    return NextResponse.json(resource === 'config' ? { ...data, withdrawalsEnabled: process.env.FINANCE_WITHDRAWALS_ENABLED === 'true' } : data, { headers });
+    return NextResponse.json(data, { headers });
   } catch { return NextResponse.json({ message: 'Serviço financeiro indisponível.' }, { status: 503, headers }); }
 }
 export const GET = handle;

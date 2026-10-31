@@ -93,7 +93,6 @@ const WithdrawPage = () => {
     const [hasPendingWithdrawal, setHasPendingWithdrawal] = useState(false);
     const [pendingWithdrawal, setPendingWithdrawal] = useState<Withdrawal | null>(null);
     const [platformFees, setPlatformFees] = useState<PlatformFees>({ taxaFixa: NaN, taxaPercent: NaN, saqueMin: NaN });
-    const [withdrawalsEnabled, setWithdrawalsEnabled] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
     const handleSyncWithdrawals = async () => {
@@ -113,13 +112,11 @@ const WithdrawPage = () => {
         }
     };
     const fetchPlatformFees = async () => {
-        setWithdrawalsEnabled(false);
         try {
             const data = await financeRequest("config");
             const policy = data.withdrawal;
             if (!policy || typeof policy.percentFee !== 'number' || !Number.isFinite(policy.percentFee) || policy.percentFee < 0) throw new Error("Política de saque inválida.");
             setPlatformFees({ taxaFixa: cents(policy.fixedFeeCents), taxaPercent: policy.percentFee, saqueMin: cents(policy.minimumCents) });
-            setWithdrawalsEnabled(data.withdrawalsEnabled === true);
         } catch (err: any) { toast.error(err.message || "Falha ao carregar taxas."); }
     };
     const fetchFinancialSummary = async () => {
@@ -262,7 +259,7 @@ const WithdrawPage = () => {
     const handleWithdrawalRequest = async () => {
         const amount = Number(withdrawalAmount);
         const amountCents = Math.round(amount * 100);
-        if (!withdrawalsEnabled || !Number.isSafeInteger(amountCents) || amountCents <= 0 || amount < platformFees.saqueMin || amount > (financialSummary?.availableBalance ?? 0) || !pixKey.trim()) {
+        if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amount < platformFees.saqueMin || amount > (financialSummary?.availableBalance ?? 0) || !pixKey.trim()) {
             toast.error("Verifique o valor, saldo disponível e chave PIX.");
             return;
         }
@@ -436,7 +433,7 @@ const WithdrawPage = () => {
                 <div className="rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-white/60 dark:bg-white/[0.04] backdrop-blur-xl overflow-hidden">
                     <div className="px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-black dark:text-white">Histórico de Saques</h3>
-                        <Button variant="outline" size="sm" onClick={handleSyncWithdrawals} disabled={!withdrawalsEnabled || isSyncing}>
+                        <Button variant="outline" size="sm" onClick={handleSyncWithdrawals} disabled={isSyncing}>
                             <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
                             {isSyncing ? "Sincronizando..." : "Sincronizar"}
                         </Button>
@@ -557,7 +554,7 @@ const WithdrawPage = () => {
                                     type="text"
                                     value={withdrawalAmount}
                                     onChange={handleAmountChange}
-                                    disabled={!withdrawalsEnabled || hasPendingWithdrawal}
+                                    disabled={hasPendingWithdrawal}
                                     className={`pl-9 ${hasPendingWithdrawal ? "opacity-50 cursor-not-allowed" : ""} ${parseFloat(withdrawalAmount) > (financialSummary?.availableBalance || 0) ? "border-red-500/50" : ""}`}
                                     placeholder="0,00"
                                 />
@@ -575,7 +572,7 @@ const WithdrawPage = () => {
                                 type="text"
                                 value={pixKey}
                                 onChange={handlePixKeyChange}
-                                disabled={!withdrawalsEnabled || hasPendingWithdrawal}
+                                disabled={hasPendingWithdrawal}
                                 className={hasPendingWithdrawal ? "opacity-50 cursor-not-allowed" : ""}
                                 placeholder="Digite seu CPF ou CNPJ"
                             />
@@ -618,7 +615,6 @@ const WithdrawPage = () => {
                         <Button
                             onClick={handleWithdrawalRequest}
                             disabled={
-                                !withdrawalsEnabled ||
                                 hasPendingWithdrawal ||
                                 isWithdrawing ||
                                 !withdrawalAmount ||
