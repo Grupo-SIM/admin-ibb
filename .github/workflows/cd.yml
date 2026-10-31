@@ -1,0 +1,30 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  ghcr:
+    name: Build and publish Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build and publish image
+        uses: hyoretsu/gh-actions/containers@main
+        with:
+          deploy-branch: master
+          image: ${{ github.repository_owner }}/admin-bosque
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
