@@ -35,6 +35,7 @@ interface PlatformFees {
 interface FinancialSummary {
     availableBalance: number;
     pendingWithdraws: number;
+    totalBalance: number;
     lockedBalance: number;
     netLockedBalance?: string | number;
 }
@@ -123,10 +124,14 @@ const WithdrawPage = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await financeRequest("summary");
+            const [data, summary] = await Promise.all([
+                financeRequest("balance"),
+                financeRequest("summary").catch(() => null),
+            ]);
             setFinancialSummary({ availableBalance: cents(data.availableBalanceCents),
-                pendingWithdraws: cents(data.pendingPlatformWithdrawalsCents),
-                lockedBalance: cents(data.lockedBalanceCents) });
+                pendingWithdraws: cents(data.pendingWithdrawalsGrossCents),
+                totalBalance: cents(data.balanceCents),
+                lockedBalance: cents(summary?.lockedBalanceCents ?? 0) });
         } catch (err: any) { setError(err.message || "Falha ao buscar resumo financeiro."); }
         finally { setLoading(false); }
     };

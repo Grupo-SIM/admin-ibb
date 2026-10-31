@@ -9,7 +9,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
   const resource = path[0];
   const receipt = request.method === 'GET' && path.length === 3 && resource === 'withdrawals' && /^[a-zA-Z0-9-]{1,100}$/.test(path[1]) && path[2] === 'receipt';
   const detail = resource === 'withdrawals' && path.length === 2 && /^[a-zA-Z0-9-]{1,100}$/.test(path[1]);
-  const collection = path.length === 1 && ['summary', 'config', 'transactions', 'withdrawals', 'reconcile'].includes(resource);
+  const collection = path.length === 1 && ['summary', 'balance', 'config', 'transactions', 'withdrawals', 'reconcile'].includes(resource);
   if ((!collection && !detail && !receipt) || (request.method === 'POST' && !(path.length === 1 && ['withdrawals', 'reconcile'].includes(resource))) || (resource === 'reconcile' && request.method !== 'POST')) return NextResponse.json({ message: 'Rota não permitida' }, { status: 404, headers });
   const allowed = request.method === 'GET' && collection && ['transactions', 'withdrawals'].includes(resource) ? ['page', 'limit', 'status', ...(resource === 'transactions' ? ['paymentMethod', 'startDate', 'endDate', 'search'] : [])] : [];
   const query = request.nextUrl.searchParams;
