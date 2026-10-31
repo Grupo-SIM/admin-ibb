@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/global";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/global";
 import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
-import { setCookie } from "@/hooks/set-cookie";
+
 import { toast } from "react-toastify";
 
 const LoginPage = () => {
@@ -16,7 +16,7 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const router = useRouter();
-  const API_URL = process.env.API_URL || "https://api-bosque.jbmidia.com";
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +25,7 @@ const LoginPage = () => {
     setSuccess(false);
 
     try {
-      const response = await fetch(API_URL + "/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password, email: mail.trim() }),
@@ -36,8 +36,8 @@ const LoginPage = () => {
       }
 
       const res = await response.json();
-      await setCookie("roles", res.user.roles, 1);
-      await setCookie("token", res.token, 1);
+
+
 
       setSuccess(true);
       toast.success("Login realizado com sucesso!");
