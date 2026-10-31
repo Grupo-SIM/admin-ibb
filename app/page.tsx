@@ -35,7 +35,6 @@ const LoginPage = () => {
         throw new Error("Login failed");
       }
 
-      const res = await response.json();
 
 
 

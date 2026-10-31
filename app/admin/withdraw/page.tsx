@@ -92,12 +92,36 @@ const WithdrawPage = () => {
     const [receiptImgError, setReceiptImgError] = useState(false);
     const [hasPendingWithdrawal, setHasPendingWithdrawal] = useState(false);
     const [pendingWithdrawal, setPendingWithdrawal] = useState<Withdrawal | null>(null);
-    // Policy, receipts and synchronization are not exposed by this platform's authenticated API.
-    const platformFees = { taxaFixa: NaN, taxaPercent: NaN, saqueMin: NaN };
-    const withdrawalsEnabled = false;
-    const isSyncing = false;
-    const handleSyncWithdrawals = () => toast.info("Sincronização indisponível na API financeira autenticada.");
-    const fetchPlatformFees = async () => {};
+    const [platformFees, setPlatformFees] = useState<PlatformFees>({ taxaFixa: NaN, taxaPercent: NaN, saqueMin: NaN });
+    const [withdrawalsEnabled, setWithdrawalsEnabled] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+    const handleSyncWithdrawals = async () => {
+        setIsSyncing(true);
+        try {
+            const response = await fetch("/api/finance/reconcile", { method: "POST" });
+            const data = await response.json();
+            if (!response.ok) throw new Error("Falha ao sincronizar");
+            const checked = Number.isSafeInteger(data?.checked) ? data.checked : 0;
+            const completed = Number.isSafeInteger(data?.completed) ? data.completed : 0;
+            toast.success(`Sincronização concluída: 0 criados, ${completed} atualizados (${checked} total)`);
+            fetchWithdrawals(1);
+        } catch {
+            toast.error("Não foi possível sincronizar o histórico de saques.");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+    const fetchPlatformFees = async () => {
+        setWithdrawalsEnabled(false);
+        try {
+            const data = await financeRequest("config");
+            const policy = data.withdrawal;
+            if (!policy || typeof policy.percentFee !== 'number' || !Number.isFinite(policy.percentFee) || policy.percentFee < 0) throw new Error("Política de saque inválida.");
+            setPlatformFees({ taxaFixa: cents(policy.fixedFeeCents), taxaPercent: policy.percentFee, saqueMin: cents(policy.minimumCents) });
+            setWithdrawalsEnabled(data.withdrawalsEnabled === true);
+        } catch (err: any) { toast.error(err.message || "Falha ao carregar taxas."); }
+    };
     const fetchFinancialSummary = async () => {
         setLoading(true);
         setError(null);
@@ -112,15 +136,16 @@ const WithdrawPage = () => {
     const fetchWithdrawals = async (page = 1) => {
         try {
             const data = await financeRequest(`withdrawals?page=${page}&limit=10`);
-            const items = data.data.map((item: any) => ({ ...item,
-                amount: cents(item.amountCents), fee: String(cents(item.feeCents)), receiptImage: undefined, comprovanteVisivel: false }));
+            const items = data.data.map((item: any) => ({ ...item, user: item.customer ?? undefined, comprovanteVisivel: item.receiptAvailable === true,
+                amount: cents(item.amountCents), fee: String(cents(item.feeCents)),
+                receiptImage: item.receiptAvailable === true ? "/api/finance/withdrawals/" + encodeURIComponent(item.id) + "/receipt" : undefined }));
             setWithdrawals(items);
             checkPendingWithdrawal(items);
             setWithdrawalsPaginationMeta({ currentPage: data.meta.page, itemsPerPage: data.meta.limit,
                 totalItems: data.meta.total, totalPages: data.meta.totalPages });
         } catch (err: any) { toast.error(err.message || "Falha ao carregar histórico de saques."); }
     };
-    useEffect(() => { fetchFinancialSummary(); fetchWithdrawals(); }, []);
+    useEffect(() => { fetchPlatformFees(); fetchFinancialSummary(); fetchWithdrawals(); }, []);
 
     const checkPendingWithdrawal = (withdrawals: Withdrawal[]) => {
         // Procurar por saque pendente (apenas PENDING)
@@ -235,15 +260,37 @@ const WithdrawPage = () => {
     }, []);
 
     const handleWithdrawalRequest = async () => {
-        toast.info("Saques indisponíveis: política de taxas não fornecida pela API autenticada.");
+        const amount = Number(withdrawalAmount);
+        const amountCents = Math.round(amount * 100);
+        if (!withdrawalsEnabled || !Number.isSafeInteger(amountCents) || amountCents <= 0 || amount < platformFees.saqueMin || amount > (financialSummary?.availableBalance ?? 0) || !pixKey.trim()) {
+            toast.error("Verifique o valor, saldo disponível e chave PIX.");
+            return;
+        }
+        const key = idempotencyKey || crypto.randomUUID();
+        setIdempotencyKey(key);
+        setIsWithdrawing(true);
+        try {
+            const response = await fetch("/api/finance/withdrawals", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ amountCents, pixKey: pixKey.trim(), idempotencyKey: key }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || data.error || "Falha ao solicitar saque.");
+            toast.success("Solicitação de saque enviada com sucesso!");
+            setIsModalOpen(false); setWithdrawalAmount(""); setPixKey(""); setIdempotencyKey(null);
+            await Promise.all([fetchFinancialSummary(), fetchWithdrawals(1)]);
+        } catch (err: any) { toast.error(err.message || "Erro ao solicitar saque."); }
+        finally { setIsWithdrawing(false); }
     };
 
     const handlePixKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setIdempotencyKey(null);
         const formattedValue = formatCPFCNPJ(e.target.value);
         setPixKey(formattedValue);
     };
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setIdempotencyKey(null);
         const value = e.target.value.replace(/[^0-9]/g, "");
         const formattedValue = (parseInt(value || "0") / 100).toFixed(2);
         setWithdrawalAmount(formattedValue);

@@ -15,4 +15,7 @@ export const clearCookie = async () => {
   const store = await cookies();
   store.delete("token"); store.delete("roles"); store.delete("finance-session");
 };
-export const getCookie = async (name: string) => (await cookies()).get(name);
+export const getCookie = async (name: string) => {
+  if (name !== "roles") throw new Error("Cookie não permitido");
+  return (await cookies()).get(name);
+};
