@@ -6,7 +6,6 @@ services:
       - NODE_ENV=production
       - API_URL=https://api-bosque.jbmidia.com
       - HOSTNAME=0.0.0.0
-      - SIMINTPAY_ALLOWED_HOSTS=${SIMINTPAY_ALLOWED_HOSTS}
       - SIMINTPAY_API_URL=${SIMINTPAY_API_URL}
       - SIMINTPAY_TOKEN=${SIMINTPAY_TOKEN}
       - FINANCE_ALLOWED_ROLES=${FINANCE_ALLOWED_ROLES:-admin,withdraw}

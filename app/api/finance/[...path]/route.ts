@@ -30,8 +30,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
   try {
     const host = new URL(process.env.SIMINTPAY_API_URL || '');
     const token = process.env.SIMINTPAY_TOKEN;
-    const allowedHosts = process.env.SIMINTPAY_ALLOWED_HOSTS?.split(',').map(value => value.trim());
-    if (!allowedHosts?.includes(host.host) || !token || host.protocol !== 'https:' || host.username || host.password || host.search || host.hash || host.pathname !== '/') throw new Error();
+    if (!token || host.protocol !== 'https:' || host.username || host.password || host.search || host.hash || host.pathname !== '/') throw new Error();
     const url = new URL(`/platforms/BOSQUE/finance/${path.join('/')}`, host);
     url.search = query.toString();
     const response = await fetch(url, { method: request.method, headers: { 'x-access-token': token, 'Content-Type': 'application/json' }, body, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(15000) });
