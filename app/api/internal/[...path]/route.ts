@@ -1,47 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-const MACHINE_API_URL = 'https://simpay-back.simintermediacoes.com';
-const INTERNAL_TOKEN = process.env.MACHINE_INTERNAL_TOKEN ?? process.env.API_MACHINE_INTERNAL_TOKEN ?? '';
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
-  const { path: segments } = await params;
-  const path = segments.join('/');
-  const search = request.nextUrl.search;
-  const url = `${MACHINE_API_URL}/internal/${path}${search}`;
-
-  const response = await fetch(url, {
-    headers: {
-      'x-internal-token': INTERNAL_TOKEN,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+// No verified, platform-scoped machine contract is available. Never proxy arbitrary internal paths.
+function blocked() {
+  return NextResponse.json({ message: 'Maquinetas indisponíveis até existir um contrato seguro de autorização.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
 }
-
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
-  const { path: segments } = await params;
-  const path = segments.join('/');
-  const search = request.nextUrl.search;
-  const url = `${MACHINE_API_URL}/internal/${path}${search}`;
-  const body = await request.text();
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'x-internal-token': INTERNAL_TOKEN,
-      'Content-Type': 'application/json',
-    },
-    body,
-  });
-
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
-}
+export const GET = blocked;
+export const POST = blocked;
