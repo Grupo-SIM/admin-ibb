@@ -1,3 +1,4 @@
+import { isSameOrigin } from '@/services/same-origin';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFinanceIdentity } from '@/services/finance-auth';
 
@@ -17,7 +18,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
   }
   let body: string | undefined;
   if (request.method === 'POST') {
-    if (request.headers.get('origin') !== request.nextUrl.origin || request.headers.get('sec-fetch-site') === 'cross-site') return NextResponse.json({ message: 'Origem inválida' }, { status: 403, headers });
+    if (!isSameOrigin(request) || request.headers.get('sec-fetch-site') === 'cross-site') return NextResponse.json({ message: 'Origem inválida' }, { status: 403, headers });
     if (resource === 'reconcile') { if ((await request.text()).length) return NextResponse.json({ message: 'Solicitação inválida' }, { status: 400, headers }); }
     else try {
       const raw = await request.text();

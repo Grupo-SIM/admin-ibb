@@ -1,8 +1,9 @@
+import { isSameOrigin } from '@/services/same-origin';
 import { NextResponse } from "next/server";
 import { churchApiUrl } from '@/services/finance-auth';
 
 export async function POST(request: Request) {
-  if (request.headers.get('origin') !== new URL(request.url).origin) return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+  if (!isSameOrigin(request)) return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
   try {
     const { email, password } = await request.json();
     if (typeof email !== 'string' || typeof password !== 'string') return NextResponse.json({ error: "Credenciais inválidas." }, { status: 400 });
