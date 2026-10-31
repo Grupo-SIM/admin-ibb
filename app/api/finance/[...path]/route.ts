@@ -29,7 +29,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
   }
   try {
     const host = new URL(process.env.SIMINTPAY_API_URL || '');
-    const token = process.env.BOSQUE_ACCESS_TOKEN;
+    const token = process.env.SIMINTPAY_TOKEN;
     const allowedHosts = process.env.SIMINTPAY_ALLOWED_HOSTS?.split(',').map(value => value.trim());
     if (!allowedHosts?.includes(host.host) || !token || host.protocol !== 'https:' || host.username || host.password || host.search || host.hash || host.pathname !== '/') throw new Error();
     const url = new URL(`/platforms/BOSQUE/finance/${path.join('/')}`, host);
