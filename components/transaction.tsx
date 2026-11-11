@@ -35,9 +35,16 @@ import { jsonToExcel } from "@/services/excel";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
 
+const getDocumentType = (document?: string | null) => {
+  const digits = (document ?? "").replace(/\D/g, "");
+  if (digits.length === 11) return "CPF";
+  if (digits.length === 14) return "CNPJ";
+  return "";
+};
+
 function adaptTransaction(item: any): Transaction {
   if (![item.amountCents, item.netAmountCents, item.platformFeeCents, item.acquirerFeeCents].every(Number.isSafeInteger)) throw new Error('Contrato financeiro inválido');
-  return { ...item, userId: '', walletId: '', name: '', email: '', updatedAt: item.createdAt, amount: item.amountCents / 100, amountWithoutAllFee: item.netAmountCents / 100, fee: item.platformFeeCents / 100, dom_fee: item.acquirerFeeCents / 100, payment_method: item.paymentMethod, appliedGlobalFee: false };
+  return { ...item, userId: '', walletId: '', name: item.customerName ?? '', email: item.customerEmail ?? '', customer_phone: item.customerPhone ?? '', customer_document: item.customerDocument ?? '', customer_document_type: getDocumentType(item.customerDocument), updatedAt: item.createdAt, amount: item.amountCents / 100, amountWithoutAllFee: item.netAmountCents / 100, fee: item.platformFeeCents / 100, dom_fee: item.acquirerFeeCents / 100, payment_method: item.paymentMethod, appliedGlobalFee: false };
 }
 interface Transaction {
   id: string;
