@@ -220,6 +220,22 @@ const TransactionsPage = () => {
         valor: formatCurrency(t.amountWithoutAllFee),
       }));
 
+      const totalCents = filtered.reduce(
+        (sum: number, t: any) => sum + Math.round((Number(t.amountWithoutAllFee) || 0) * 100),
+        0
+      );
+      formatted.push({
+        nome: "TOTAL",
+        data: "",
+        tipo: "",
+        email: "",
+        "número de telefone": "",
+        documento: "",
+        "tipo do documento": "",
+        "método de pagamento": "",
+        valor: formatCurrency(totalCents / 100),
+      });
+
       jsonToExcel(formatted, columns, `transacoes-${new Date().toISOString().split("T")[0]}`);
       toast.success("Arquivo Excel exportado com sucesso!");
     } catch {
